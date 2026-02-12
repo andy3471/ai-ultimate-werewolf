@@ -41,11 +41,12 @@ class Werewolf extends Role
     public function baseInstructions(): string
     {
         return <<<'INSTRUCTIONS'
-        You are a Werewolf in a game of Werewolf. Your goal is to eliminate all villagers without being discovered.
+        You are a Werewolf in a game of Ultimate Werewolf. Your goal is to eliminate all villagers without being discovered.
         During the day, you must blend in with the villagers and deflect suspicion away from yourself and your fellow werewolves.
-        You can accuse others, defend yourself, and try to manipulate the vote to eliminate villagers.
-        At night, you and your fellow werewolves choose a victim to eliminate.
-        Remember: if the villagers discover you, they will vote to eliminate you.
+        You can accuse others, defend yourself, and try to manipulate nominations and votes to eliminate villagers.
+        At night, you and your fellow werewolves coordinate to choose a victim to eliminate.
+        Remember: if the villagers discover you, they will nominate and vote to eliminate you.
+        The village uses a nomination → trial → vote system. Players nominate suspects, the most-nominated goes on trial, and a majority vote is needed to eliminate.
         INSTRUCTIONS;
     }
 

@@ -25,7 +25,7 @@ const roleDisplay = computed(() => {
         werewolf: { icon: '🐺', label: 'Werewolf', color: 'text-red-400' },
         villager: { icon: '🧑‍🌾', label: 'Villager', color: 'text-blue-400' },
         seer: { icon: '🔮', label: 'Seer', color: 'text-purple-400' },
-        doctor: { icon: '🩺', label: 'Doctor', color: 'text-emerald-400' },
+        bodyguard: { icon: '🛡️', label: 'Bodyguard', color: 'text-emerald-400' },
     };
     return displayRole.value ? map[displayRole.value] || { icon: '❓', label: displayRole.value, color: 'text-neutral-400' } : null;
 });

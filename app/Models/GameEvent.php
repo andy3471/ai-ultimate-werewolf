@@ -35,6 +35,11 @@ class GameEvent extends Model
 
     public function toData(): GameEventData
     {
+        // Pass through safe extra fields (vote direction, tally, etc.)
+        $extraData = collect($this->data ?? [])
+            ->except(['thinking', 'public_reasoning', 'message'])
+            ->all();
+
         return new GameEventData(
             id: $this->id,
             round: $this->round,
@@ -47,6 +52,7 @@ class GameEvent extends Model
             public_reasoning: $this->data['public_reasoning'] ?? null,
             is_public: $this->is_public,
             created_at: $this->created_at->toISOString(),
+            data: ! empty($extraData) ? $extraData : null,
         );
     }
 }

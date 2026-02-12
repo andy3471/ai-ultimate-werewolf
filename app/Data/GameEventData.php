@@ -20,5 +20,7 @@ class GameEventData extends Data
         public ?string $public_reasoning,
         public bool $is_public,
         public string $created_at,
+        /** @var array<string, mixed>|null */
+        public ?array $data = null,
     ) {}
 }

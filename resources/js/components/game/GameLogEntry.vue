@@ -14,6 +14,7 @@ interface GameEventData {
     public_reasoning: string | null;
     is_public: boolean;
     created_at: string;
+    data?: Record<string, any> | null;
 }
 
 interface PlayerMap {
@@ -35,16 +36,26 @@ const targetName = computed(() => {
     return props.players[props.event.target_player_id]?.name ?? `Player #${props.event.target_player_id}`;
 });
 
+const addressedName = computed(() => {
+    const addressedId = props.event.data?.addressed_player_id;
+    if (!addressedId) return null;
+    return props.players[addressedId]?.name ?? `Player #${addressedId}`;
+});
+
 const typeConfig = computed(() => {
     const configs: Record<string, { icon: string; color: string }> = {
         werewolf_kill: { icon: '🐺', color: 'border-red-900/50' },
         seer_investigate: { icon: '🔮', color: 'border-purple-900/50' },
-        doctor_protect: { icon: '🩺', color: 'border-emerald-900/50' },
+        bodyguard_protect: { icon: '🛡️', color: 'border-emerald-900/50' },
         discussion: { icon: '💬', color: 'border-sky-900/50' },
+        dying_speech: { icon: '💀', color: 'border-red-900/30' },
+        nomination: { icon: '👉', color: 'border-amber-900/50' },
+        nomination_result: { icon: '⚖️', color: 'border-amber-800/50' },
+        defense_speech: { icon: '🗣️', color: 'border-yellow-900/50' },
         vote: { icon: '🗳️', color: 'border-amber-900/50' },
         death: { icon: '💀', color: 'border-red-800/50' },
         elimination: { icon: '⚖️', color: 'border-red-800/50' },
-        doctor_save: { icon: '🛡️', color: 'border-emerald-800/50' },
+        bodyguard_save: { icon: '🛡️', color: 'border-emerald-800/50' },
         no_death: { icon: '☀️', color: 'border-amber-800/50' },
         vote_tally: { icon: '📊', color: 'border-neutral-700/50' },
         vote_tie: { icon: '🤝', color: 'border-neutral-700/50' },
@@ -61,14 +72,22 @@ const displayText = computed(() => {
 
     switch (type) {
         case 'discussion':
+        case 'dying_speech':
+        case 'defense_speech':
             return msg ?? '';
-        case 'vote':
+        case 'nomination':
+            return `nominated ${targetName.value} for trial${props.event.public_reasoning ? `: "${props.event.public_reasoning}"` : ''}`;
+        case 'vote': {
+            const vote = props.event.data?.vote;
+            if (vote === 'yes') return `voted to ELIMINATE${props.event.public_reasoning ? `: "${props.event.public_reasoning}"` : ''}`;
+            if (vote === 'no') return `voted to SPARE${props.event.public_reasoning ? `: "${props.event.public_reasoning}"` : ''}`;
             return `voted to eliminate ${targetName.value}${props.event.public_reasoning ? `: "${props.event.public_reasoning}"` : ''}`;
+        }
         case 'werewolf_kill':
             return `targeted ${targetName.value}`;
         case 'seer_investigate':
             return `investigated ${targetName.value}`;
-        case 'doctor_protect':
+        case 'bodyguard_protect':
             return `chose to protect ${targetName.value}`;
         default:
             return msg ?? '';
@@ -83,7 +102,8 @@ const displayText = computed(() => {
             <div class="min-w-0 flex-1">
                 <div class="text-sm">
                     <span v-if="actorName" class="font-semibold text-neutral-200">{{ actorName }}</span>
-                    <span v-if="actorName && displayText" class="text-neutral-400"> {{ event.type === 'discussion' ? ':' : '' }} </span>
+                    <span v-if="addressedName && event.type === 'discussion'" class="text-sky-400/80"> → {{ addressedName }}</span>
+                    <span v-if="actorName && displayText" class="text-neutral-400"> {{ ['discussion', 'dying_speech', 'defense_speech'].includes(event.type) ? ':' : '' }} </span>
                     <span class="text-neutral-300">{{ displayText }}</span>
                 </div>
 

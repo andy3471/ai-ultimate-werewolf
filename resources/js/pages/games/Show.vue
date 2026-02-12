@@ -112,7 +112,7 @@ function phaseLabel(p: string): string {
         lobby: 'Waiting for game to start...',
         night_werewolf: 'The werewolves choose their victim.',
         night_seer: 'The Seer investigates a player.',
-        night_doctor: 'The Doctor chooses a player to protect.',
+        night_bodyguard: 'The Bodyguard chooses a player to protect.',
         dawn: 'Night actions are resolved.',
         day_discussion: 'Players discuss and share suspicions.',
         day_voting: 'Players vote to eliminate a suspect.',

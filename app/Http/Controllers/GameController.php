@@ -39,6 +39,7 @@ class GameController extends Controller
     {
         $validated = $request->validate([
             'players' => 'required|array|min:5|max:12',
+            'players.*.name' => 'required|string|max:30',
             'players.*.provider' => 'required|string',
             'players.*.model' => 'required|string',
             'players.*.personality' => 'required|string',
@@ -52,7 +53,7 @@ class GameController extends Controller
 
         foreach ($validated['players'] as $index => $playerData) {
             $game->players()->create([
-                'name' => $this->getModelDisplayName($playerData['model']),
+                'name' => $playerData['name'],
                 'provider' => $playerData['provider'],
                 'model' => $playerData['model'],
                 'personality' => $playerData['personality'],
@@ -91,25 +92,6 @@ class GameController extends Controller
         $game->load(['players', 'events']);
 
         return response()->json($game->toData());
-    }
-
-    protected function getModelDisplayName(string $model): string
-    {
-        $names = [
-            'gpt-4o' => 'GPT-4o',
-            'gpt-4o-mini' => 'GPT-4o Mini',
-            'gpt-4.1' => 'GPT-4.1',
-            'gpt-4.1-mini' => 'GPT-4.1 Mini',
-            'gpt-4.1-nano' => 'GPT-4.1 Nano',
-            'o3-mini' => 'o3-mini',
-            'claude-sonnet-4-20250514' => 'Claude Sonnet 4',
-            'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5',
-            'claude-4-opus-20260301' => 'Claude Opus 4',
-            'gemini-2.0-flash' => 'Gemini 2.0 Flash',
-            'gemini-2.5-pro-preview-06-05' => 'Gemini 2.5 Pro',
-        ];
-
-        return $names[$model] ?? $model;
     }
 
     protected function getAvailableProviders(): array

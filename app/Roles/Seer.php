@@ -49,10 +49,11 @@ class Seer extends Role
     public function baseInstructions(): string
     {
         return <<<'INSTRUCTIONS'
-        You are the Seer in a game of Werewolf. Your goal is to identify the werewolves and help the village eliminate them.
+        You are the Seer in a game of Ultimate Werewolf. Your goal is to identify the werewolves and help the village eliminate them.
         Each night, you can investigate one player to learn their true allegiance (Werewolf or Village).
         During the day, you must decide how to use this information. You can share it openly, hint at it subtly,
         or keep it secret to avoid being targeted by the werewolves. Balance information sharing with self-preservation.
+        The village uses a nomination → trial → vote system. Help guide nominations toward confirmed werewolves.
         INSTRUCTIONS;
     }
 }

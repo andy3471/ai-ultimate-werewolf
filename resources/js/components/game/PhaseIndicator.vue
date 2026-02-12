@@ -12,7 +12,7 @@ const phaseDisplay = computed(() => {
         lobby: { label: 'Lobby', icon: '🏠', bg: 'from-neutral-800 to-neutral-900' },
         night_werewolf: { label: 'Night - Werewolves', icon: '🐺', bg: 'from-indigo-950 to-neutral-950' },
         night_seer: { label: 'Night - Seer', icon: '🔮', bg: 'from-purple-950 to-neutral-950' },
-        night_doctor: { label: 'Night - Doctor', icon: '🩺', bg: 'from-emerald-950 to-neutral-950' },
+        night_bodyguard: { label: 'Night - Bodyguard', icon: '🛡️', bg: 'from-emerald-950 to-neutral-950' },
         dawn: { label: 'Dawn', icon: '🌅', bg: 'from-amber-950 to-neutral-950' },
         day_discussion: { label: 'Discussion', icon: '💬', bg: 'from-sky-950 to-neutral-950' },
         day_voting: { label: 'Voting', icon: '🗳️', bg: 'from-red-950 to-neutral-950' },

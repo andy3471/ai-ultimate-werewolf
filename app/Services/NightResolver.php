@@ -24,9 +24,9 @@ class NightResolver
             ->where('type', 'werewolf_kill')
             ->first();
 
-        $doctorAction = $game->events()
+        $bodyguardAction = $game->events()
             ->where('round', $round)
-            ->where('type', 'doctor_protect')
+            ->where('type', 'bodyguard_protect')
             ->first();
 
         $killed = null;
@@ -36,8 +36,8 @@ class NightResolver
         // Determine the werewolf target
         $targetId = $werewolfAction?->target_player_id;
 
-        // Determine if doctor protected the target
-        $protectedId = $doctorAction?->target_player_id;
+        // Determine if bodyguard protected the target
+        $protectedId = $bodyguardAction?->target_player_id;
 
         if ($protectedId) {
             $protected = Player::find($protectedId);
@@ -45,13 +45,13 @@ class NightResolver
 
         if ($targetId) {
             if ($targetId === $protectedId) {
-                // Doctor saved the target
+                // Bodyguard saved the target
                 $events[] = $game->events()->create([
                     'round' => $round,
                     'phase' => 'dawn',
-                    'type' => 'doctor_save',
+                    'type' => 'bodyguard_save',
                     'target_player_id' => $targetId,
-                    'data' => ['message' => 'The doctor saved someone during the night!'],
+                    'data' => ['message' => 'The Bodyguard saved someone during the night!'],
                     'is_public' => true,
                 ]);
             } else {

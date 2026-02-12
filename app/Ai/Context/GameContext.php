@@ -147,10 +147,14 @@ class GameContext
     {
         return match ($event->type) {
             'discussion' => $this->formatDiscussion($event),
+            'dying_speech' => $this->formatDyingSpeech($event),
+            'nomination' => $this->formatNomination($event),
+            'nomination_result' => $event->data['message'] ?? null,
+            'defense_speech' => $this->formatDefenseSpeech($event),
             'vote' => $this->formatVote($event),
             'death' => $event->data['message'] ?? null,
             'elimination' => $event->data['message'] ?? null,
-            'doctor_save' => $event->data['message'] ?? null,
+            'bodyguard_save' => $event->data['message'] ?? null,
             'no_death' => $event->data['message'] ?? null,
             'vote_tally' => $event->data['message'] ?? null,
             'vote_tie' => $event->data['message'] ?? null,
@@ -169,10 +173,47 @@ class GameContext
         $name = $actor ? $actor->name : 'Unknown';
         $message = $event->data['message'] ?? '';
 
-        return "**{$name}**: {$message}";
+        $addressedId = $event->data['addressed_player_id'] ?? null;
+        $addressedSuffix = '';
+        if ($addressedId) {
+            $addressed = $event->target;
+            $addressedName = $addressed ? $addressed->name : "Player #{$addressedId}";
+            $addressedSuffix = " (→ addressing {$addressedName})";
+        }
+
+        return "**{$name}**{$addressedSuffix}: {$message}";
     }
 
     protected function formatVote(GameEvent $event): ?string
+    {
+        $actor = $event->actor;
+        $actorName = $actor ? $actor->name : 'Unknown';
+        $reasoning = $event->data['public_reasoning'] ?? '';
+
+        // Trial vote (yes/no)
+        if (isset($event->data['vote'])) {
+            $vote = $event->data['vote'] === 'yes' ? 'ELIMINATE' : 'SPARE';
+
+            return "**{$actorName}** voted to **{$vote}**".($reasoning ? ": \"{$reasoning}\"" : '');
+        }
+
+        // Legacy direct vote
+        $target = $event->target;
+        $targetName = $target ? $target->name : 'Unknown';
+
+        return "**{$actorName}** voted to eliminate **{$targetName}**".($reasoning ? ": \"{$reasoning}\"" : '');
+    }
+
+    protected function formatDyingSpeech(GameEvent $event): ?string
+    {
+        $actor = $event->actor;
+        $name = $actor ? $actor->name : 'Unknown';
+        $message = $event->data['message'] ?? '';
+
+        return "💀 **{$name}** (dying words): {$message}";
+    }
+
+    protected function formatNomination(GameEvent $event): ?string
     {
         $actor = $event->actor;
         $target = $event->target;
@@ -180,6 +221,15 @@ class GameContext
         $targetName = $target ? $target->name : 'Unknown';
         $reasoning = $event->data['public_reasoning'] ?? '';
 
-        return "**{$actorName}** voted to eliminate **{$targetName}**".($reasoning ? ": \"{$reasoning}\"" : '');
+        return "**{$actorName}** nominated **{$targetName}** for trial".($reasoning ? ": \"{$reasoning}\"" : '');
+    }
+
+    protected function formatDefenseSpeech(GameEvent $event): ?string
+    {
+        $actor = $event->actor;
+        $name = $actor ? $actor->name : 'Unknown';
+        $message = $event->data['message'] ?? '';
+
+        return "⚖️ **{$name}** (defense): {$message}";
     }
 }

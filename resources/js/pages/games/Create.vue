@@ -16,6 +16,7 @@ interface ProviderOption {
 }
 
 interface PlayerSlot {
+    name: string;
     provider: string;
     model: string;
     personality: string;
@@ -26,23 +27,34 @@ const props = defineProps<{
     availablePersonalities: string[];
 }>();
 
+function uniqueName(baseName: string, existingNames: string[]): string {
+    if (!existingNames.includes(baseName)) return baseName;
+    let i = 2;
+    while (existingNames.includes(`${baseName} #${i}`)) i++;
+    return `${baseName} #${i}`;
+}
+
 function buildDefaultPlayers(): PlayerSlot[] {
     const defaults: PlayerSlot[] = [];
     const providers = props.availableProviders;
     const personalities = props.availablePersonalities;
 
     // Spread models across available providers for variety
-    const allModels: { provider: string; model: string }[] = [];
+    const allModels: { provider: string; model: string; modelName: string }[] = [];
     for (const provider of providers) {
         for (const model of provider.models) {
-            allModels.push({ provider: provider.id, model: model.id });
+            allModels.push({ provider: provider.id, model: model.id, modelName: model.name });
         }
     }
 
+    const usedNames: string[] = [];
     const count = Math.min(7, Math.max(5, allModels.length));
     for (let i = 0; i < count; i++) {
         const entry = allModels[i % allModels.length];
+        const name = uniqueName(entry.modelName, usedNames);
+        usedNames.push(name);
         defaults.push({
+            name,
             provider: entry.provider,
             model: entry.model,
             personality: personalities[i % personalities.length],
@@ -69,8 +81,11 @@ function addPlayer() {
     const providerIndex = players.value.length % props.availableProviders.length;
     const provider = props.availableProviders[providerIndex];
     const personalityIndex = players.value.length % props.availablePersonalities.length;
+    const modelName = provider.models[0].name;
+    const usedNames = players.value.map((p) => p.name);
 
     players.value.push({
+        name: uniqueName(modelName, usedNames),
         provider: provider.id,
         model: provider.models[0].id,
         personality: props.availablePersonalities[personalityIndex],
@@ -88,7 +103,16 @@ function onProviderChange(index: number) {
     const models = getModelsForProvider(slot.provider);
     if (models.length > 0) {
         slot.model = models[0].id;
+        const usedNames = players.value.filter((_, i) => i !== index).map((p) => p.name);
+        slot.name = uniqueName(models[0].name, usedNames);
     }
+}
+
+function onModelChange(index: number) {
+    const slot = players.value[index];
+    const modelName = getModelName(slot.provider, slot.model);
+    const usedNames = players.value.filter((_, i) => i !== index).map((p) => p.name);
+    slot.name = uniqueName(modelName, usedNames);
 }
 
 function submit() {
@@ -140,42 +164,56 @@ const providerAccent: Record<string, string> = {
                             {{ index + 1 }}
                         </div>
 
-                        <div class="grid flex-1 gap-3 sm:grid-cols-3">
+                        <div class="flex-1 space-y-3">
                             <div>
-                                <label class="mb-1 block text-xs font-medium text-neutral-400">Provider</label>
-                                <select
-                                    v-model="player.provider"
-                                    @change="onProviderChange(index)"
-                                    class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                >
-                                    <option v-for="provider in availableProviders" :key="provider.id" :value="provider.id">
-                                        {{ provider.name }}
-                                    </option>
-                                </select>
+                                <label class="mb-1 block text-xs font-medium text-neutral-400">Display Name</label>
+                                <input
+                                    v-model="player.name"
+                                    type="text"
+                                    placeholder="Player name"
+                                    maxlength="30"
+                                    class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
                             </div>
 
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-neutral-400">Model</label>
-                                <select
-                                    v-model="player.model"
-                                    class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                >
-                                    <option v-for="model in getModelsForProvider(player.provider)" :key="model.id" :value="model.id">
-                                        {{ model.name }}
-                                    </option>
-                                </select>
-                            </div>
+                            <div class="grid gap-3 sm:grid-cols-3">
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-neutral-400">Provider</label>
+                                    <select
+                                        v-model="player.provider"
+                                        @change="onProviderChange(index)"
+                                        class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    >
+                                        <option v-for="provider in availableProviders" :key="provider.id" :value="provider.id">
+                                            {{ provider.name }}
+                                        </option>
+                                    </select>
+                                </div>
 
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-neutral-400">Personality</label>
-                                <select
-                                    v-model="player.personality"
-                                    class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                >
-                                    <option v-for="personality in availablePersonalities" :key="personality" :value="personality">
-                                        {{ personality.length > 50 ? personality.slice(0, 50) + '...' : personality }}
-                                    </option>
-                                </select>
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-neutral-400">Model</label>
+                                    <select
+                                        v-model="player.model"
+                                        @change="onModelChange(index)"
+                                        class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    >
+                                        <option v-for="model in getModelsForProvider(player.provider)" :key="model.id" :value="model.id">
+                                            {{ model.name }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-neutral-400">Personality</label>
+                                    <select
+                                        v-model="player.personality"
+                                        class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    >
+                                        <option v-for="personality in availablePersonalities" :key="personality" :value="personality">
+                                            {{ personality.length > 50 ? personality.slice(0, 50) + '...' : personality }}
+                                        </option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -196,7 +234,7 @@ const providerAccent: Record<string, string> = {
 
                     <div class="mt-2 pl-14">
                         <span :class="['text-xs font-medium', providerAccent[player.provider] || 'text-neutral-400']">
-                            {{ getModelName(player.provider, player.model) }}
+                            {{ getModelName(player.provider, player.model) }} ({{ player.provider }})
                         </span>
                     </div>
                 </div>
@@ -221,7 +259,7 @@ const providerAccent: Record<string, string> = {
 
             <div class="mt-8 flex items-center justify-between border-t border-neutral-800 pt-6">
                 <div class="text-sm text-neutral-400">
-                    {{ players.length }} players (2 Werewolves, 1 Seer, 1 Doctor, {{ Math.max(0, players.length - 4) }} Villagers)
+                    {{ players.length }} players ({{ players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3 }} Werewolf{{ (players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3) > 1 ? 'es' : '' }}, 1 Seer, 1 Bodyguard, {{ Math.max(0, players.length - (players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3) - 2) }} Villager{{ Math.max(0, players.length - (players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3) - 2) !== 1 ? 's' : '' }})
                 </div>
                 <button
                     @click="submit"

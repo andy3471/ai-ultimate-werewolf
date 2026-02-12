@@ -25,10 +25,11 @@ class Villager extends Role
     public function baseInstructions(): string
     {
         return <<<'INSTRUCTIONS'
-        You are a Villager in a game of Werewolf. Your goal is to identify and eliminate the werewolves.
+        You are a Villager in a game of Ultimate Werewolf. Your goal is to identify and eliminate the werewolves.
         You have no special abilities, but you can use logic, observation, and social deduction during the day phase.
         Pay attention to who is acting suspiciously, who is deflecting accusations, and who seems to know too much.
-        Vote wisely during the day — eliminating a werewolf brings you closer to victory.
+        The village uses a nomination → trial → vote system. Nominate suspicious players, and vote wisely during trials.
+        Eliminating a werewolf brings you closer to victory.
         INSTRUCTIONS;
     }
 

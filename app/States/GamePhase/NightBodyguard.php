@@ -2,18 +2,18 @@
 
 namespace App\States\GamePhase;
 
-class NightDoctor extends GamePhaseState
+class NightBodyguard extends GamePhaseState
 {
-    public static $name = 'night_doctor';
+    public static $name = 'night_bodyguard';
 
     public function label(): string
     {
-        return 'Night - Doctor';
+        return 'Night - Bodyguard';
     }
 
     public function description(): string
     {
-        return 'The Doctor chooses a player to protect.';
+        return 'The Bodyguard chooses a player to protect.';
     }
 
     public function isNight(): bool
