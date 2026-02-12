@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Enums\GameRole;
 use App\Roles\Bodyguard;
+use App\Roles\Hunter;
 use App\Roles\Role;
 use App\Roles\Seer;
+use App\Roles\Tanner;
 use App\Roles\Villager;
 use App\Roles\Werewolf;
 
@@ -20,6 +22,8 @@ class RoleRegistry
         $this->register(new Villager);
         $this->register(new Seer);
         $this->register(new Bodyguard);
+        $this->register(new Hunter);
+        $this->register(new Tanner);
     }
 
     public function register(Role $role): void

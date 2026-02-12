@@ -55,6 +55,7 @@ class GameEngine
 
         // Determine role distribution (scales with player count)
         $roles = $this->distributeRoles($playerCount);
+        $roleDistribution = $this->buildRoleDistribution($roles);
 
         // Shuffle and assign
         $shuffledRoles = collect($roles)->shuffle();
@@ -65,7 +66,7 @@ class GameEngine
 
         // Transition game state
         $game->status->transitionTo(Running::class);
-        $game->update(['round' => 1]);
+        $game->update(['round' => 1, 'role_distribution' => $roleDistribution]);
         $game->phase->transitionTo(NightWerewolf::class);
 
         $this->broadcastPhaseChange($game);
@@ -359,9 +360,10 @@ class GameEngine
             }
         }
 
-        // Dying speech for the killed player
+        // Dying speech + Hunter revenge for the killed player
         if ($result['killed']) {
             $this->giveDyingSpeech($game, $result['killed']);
+            $this->handleHunterRevenge($game, $result['killed']);
         }
 
         // Check win condition
@@ -777,8 +779,14 @@ class GameEngine
                 $accused->role->value,
             ));
 
-            // Dying speech for the eliminated player
+            // Dying speech + Hunter revenge for the eliminated player
             $this->giveDyingSpeech($game, $accused);
+            $this->handleHunterRevenge($game, $accused);
+
+            // Check Tanner win (and other win conditions) immediately
+            if ($this->checkWinCondition($game, eliminatedByVillage: $accused)) {
+                return;
+            }
         } else {
             $game->events()->create([
                 'round' => $game->round,
@@ -856,18 +864,115 @@ class GameEngine
     }
 
     // =========================================================================
+    // Hunter revenge kill
+    // =========================================================================
+
+    /**
+     * If the eliminated player is the Hunter, they take someone down with them.
+     */
+    protected function handleHunterRevenge(Game $game, Player $deadPlayer): void
+    {
+        if ($deadPlayer->role !== GameRole::Hunter) {
+            return;
+        }
+
+        try {
+            $context = $this->gameContext->buildForPlayer($game, $deadPlayer);
+            $context .= "\n\n## HUNTER'S REVENGE\nYou have been eliminated, but as the Hunter, you get to take one player down with you! Choose wisely — target who you believe is a werewolf.";
+
+            $result = NightActionAgent::make(
+                player: $deadPlayer,
+                game: $game,
+                context: $context,
+                actionPrompt: 'You are the Hunter. Choose one alive player to shoot with your dying action. Pick who you believe is a werewolf.',
+            )->prompt(
+                'Choose a player to take down with you.',
+                provider: $deadPlayer->provider,
+                model: $deadPlayer->model,
+            );
+
+            $targetId = $this->resolveTargetId($result['target_id'], $game, excludePlayerId: $deadPlayer->id);
+            $target = $targetId ? Player::find($targetId) : null;
+
+            if ($target && $target->is_alive) {
+                $target->update(['is_alive' => false]);
+
+                $event = $game->events()->create([
+                    'round' => $game->round,
+                    'phase' => $game->phase->getValue(),
+                    'type' => 'hunter_shot',
+                    'actor_player_id' => $deadPlayer->id,
+                    'target_player_id' => $target->id,
+                    'data' => [
+                        'thinking' => $result['thinking'] ?? '',
+                        'public_reasoning' => $result['public_reasoning'] ?? '',
+                        'message' => "{$deadPlayer->name} was the Hunter and shoots {$target->name} with their dying breath! {$target->name} was a {$target->role->value}.",
+                        'role_revealed' => $target->role->value,
+                    ],
+                    'is_public' => true,
+                ]);
+
+                broadcast(new PlayerEliminated(
+                    $game->id,
+                    $event->toData(),
+                    $target->id,
+                    $target->role->value,
+                ));
+
+                // The shot player also gets a dying speech
+                $this->giveDyingSpeech($game, $target);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to process Hunter revenge', [
+                'player_id' => $deadPlayer->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    // =========================================================================
     // Win condition
     // =========================================================================
 
-    protected function checkWinCondition(Game $game): bool
+    /**
+     * Check win conditions including Tanner special win.
+     *
+     * @param  Player|null  $eliminatedByVillage  If set, the player just voted out (check Tanner win)
+     */
+    protected function checkWinCondition(Game $game, ?Player $eliminatedByVillage = null): bool
     {
         $game->refresh();
+
+        // Tanner win: if the Tanner was eliminated by village vote, Tanner wins (solo)
+        if ($eliminatedByVillage && $eliminatedByVillage->role === GameRole::Tanner) {
+            $game->update(['winner' => GameTeam::Neutral]);
+            $game->phase->transitionTo(GameOver::class);
+            $game->status->transitionTo(Finished::class);
+
+            $game->events()->create([
+                'round' => $game->round,
+                'phase' => 'game_over',
+                'type' => 'game_end',
+                'data' => [
+                    'winner' => GameTeam::Neutral->value,
+                    'message' => "{$eliminatedByVillage->name} was the Tanner and WANTED to be eliminated! The Tanner wins!",
+                ],
+                'is_public' => true,
+            ]);
+
+            broadcast(new GameEnded($game->id, GameTeam::Neutral->value, "{$eliminatedByVillage->name} was the Tanner and wins!"));
+            broadcast(new GamePhaseChanged($game->id, 'game_over', $game->round, 'The Tanner wins!'));
+
+            return true;
+        }
+
         $alive = $game->alivePlayers()->get();
 
         $werewolvesAlive = $alive->filter(
             fn (Player $p) => $p->role === GameRole::Werewolf
         )->count();
 
+        // Count non-werewolf, non-tanner alive players for balance check
         $villagersAlive = $alive->filter(
             fn (Player $p) => $p->role !== GameRole::Werewolf
         )->count();
@@ -917,7 +1022,9 @@ class GameEngine
      * - 5-6 players: 1 werewolf
      * - 7-11 players: 2 werewolves
      * - 12+ players: 3 werewolves
-     * Always: 1 Seer, 1 Bodyguard, rest Villagers.
+     * Always: 1 Seer, 1 Bodyguard, 1 Hunter.
+     * Tanner added at 7+ players.
+     * Rest are Villagers.
      *
      * @return GameRole[]
      */
@@ -937,6 +1044,12 @@ class GameEngine
 
         $roles[] = GameRole::Seer;
         $roles[] = GameRole::Bodyguard;
+        $roles[] = GameRole::Hunter;
+
+        // Tanner at 7+ players (adds a wild card)
+        if ($playerCount >= 7) {
+            $roles[] = GameRole::Tanner;
+        }
 
         // Fill remaining with villagers
         $villagersNeeded = $playerCount - count($roles);
@@ -945,6 +1058,24 @@ class GameEngine
         }
 
         return $roles;
+    }
+
+    /**
+     * Build a human-readable role distribution map (e.g. {"Werewolf": 2, "Seer": 1, ...}).
+     *
+     * @param  GameRole[]  $roles
+     * @return array<string, int>
+     */
+    protected function buildRoleDistribution(array $roles): array
+    {
+        $distribution = [];
+
+        foreach ($roles as $role) {
+            $name = $this->roleRegistry->get($role)->name();
+            $distribution[$name] = ($distribution[$name] ?? 0) + 1;
+        }
+
+        return $distribution;
     }
 
     // =========================================================================

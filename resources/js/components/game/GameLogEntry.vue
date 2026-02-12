@@ -24,6 +24,7 @@ interface PlayerMap {
 const props = defineProps<{
     event: GameEventData;
     players: PlayerMap;
+    forceShowThinking?: boolean;
 }>();
 
 const actorName = computed(() => {
@@ -56,6 +57,7 @@ const typeConfig = computed(() => {
         death: { icon: '💀', color: 'border-red-800/50' },
         elimination: { icon: '⚖️', color: 'border-red-800/50' },
         bodyguard_save: { icon: '🛡️', color: 'border-emerald-800/50' },
+        hunter_shot: { icon: '🏹', color: 'border-amber-800/50' },
         no_death: { icon: '☀️', color: 'border-amber-800/50' },
         vote_tally: { icon: '📊', color: 'border-neutral-700/50' },
         vote_tie: { icon: '🤝', color: 'border-neutral-700/50' },
@@ -89,6 +91,8 @@ const displayText = computed(() => {
             return `investigated ${targetName.value}`;
         case 'bodyguard_protect':
             return `chose to protect ${targetName.value}`;
+        case 'hunter_shot':
+            return msg ?? `shot ${targetName.value} with their dying breath!`;
         default:
             return msg ?? '';
     }
@@ -111,6 +115,7 @@ const displayText = computed(() => {
                     v-if="event.thinking"
                     :thinking="event.thinking"
                     :player-name="actorName ?? undefined"
+                    :force-expanded="forceShowThinking"
                 />
             </div>
         </div>

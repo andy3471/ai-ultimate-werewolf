@@ -43,12 +43,23 @@ class GameContext
         $totalPlayers = $game->players()->count();
         $deadPlayers = $totalPlayers - $alivePlayers;
 
+        // Role composition (publicly known)
+        $roleDistribution = $game->role_distribution;
+        $rolesLine = '';
+        if ($roleDistribution) {
+            $parts = [];
+            foreach ($roleDistribution as $roleName => $count) {
+                $parts[] = "{$count}x {$roleName}";
+            }
+            $rolesLine = "\n- Roles in this game: ".implode(', ', $parts);
+        }
+
         return <<<CONTEXT
         ## Game State
         - Round: {$game->round}
         - Current Phase: {$game->phase->label()}
         - Players Alive: {$alivePlayers} / {$totalPlayers}
-        - Players Dead: {$deadPlayers}
+        - Players Dead: {$deadPlayers}{$rolesLine}
         - Your Name: {$player->name}
         - Your Role: {$player->role->value}
         CONTEXT;
@@ -155,6 +166,7 @@ class GameContext
             'death' => $event->data['message'] ?? null,
             'elimination' => $event->data['message'] ?? null,
             'bodyguard_save' => $event->data['message'] ?? null,
+            'hunter_shot' => $event->data['message'] ?? null,
             'no_death' => $event->data['message'] ?? null,
             'vote_tally' => $event->data['message'] ?? null,
             'vote_tie' => $event->data['message'] ?? null,

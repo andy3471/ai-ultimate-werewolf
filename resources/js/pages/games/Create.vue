@@ -124,6 +124,27 @@ function submit() {
 
 const canSubmit = computed(() => players.value.length >= 5 && players.value.length <= 12);
 
+const roleBreakdown = computed(() => {
+    const n = players.value.length;
+    const wolves = n <= 6 ? 1 : n <= 11 ? 2 : 3;
+    const seer = 1;
+    const bodyguard = 1;
+    const hunter = 1;
+    const tanner = n >= 7 ? 1 : 0;
+    const specialCount = wolves + seer + bodyguard + hunter + tanner;
+    const villagers = Math.max(0, n - specialCount);
+
+    const parts: string[] = [];
+    parts.push(`${wolves} Werewolf${wolves > 1 ? 'es' : ''}`);
+    parts.push(`1 Seer`);
+    parts.push(`1 Bodyguard`);
+    parts.push(`1 Hunter`);
+    if (tanner) parts.push(`1 Tanner`);
+    parts.push(`${villagers} Villager${villagers !== 1 ? 's' : ''}`);
+
+    return parts.join(', ');
+});
+
 const providerColors: Record<string, string> = {
     openai: 'border-green-600/40 bg-green-950/20',
     anthropic: 'border-orange-600/40 bg-orange-950/20',
@@ -259,7 +280,7 @@ const providerAccent: Record<string, string> = {
 
             <div class="mt-8 flex items-center justify-between border-t border-neutral-800 pt-6">
                 <div class="text-sm text-neutral-400">
-                    {{ players.length }} players ({{ players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3 }} Werewolf{{ (players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3) > 1 ? 'es' : '' }}, 1 Seer, 1 Bodyguard, {{ Math.max(0, players.length - (players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3) - 2) }} Villager{{ Math.max(0, players.length - (players.length <= 6 ? 1 : players.length <= 11 ? 2 : 3) - 2) !== 1 ? 's' : '' }})
+                    {{ players.length }} players ({{ roleBreakdown }})
                 </div>
                 <button
                     @click="submit"

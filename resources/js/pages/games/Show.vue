@@ -39,6 +39,7 @@ interface GameData {
     phase: string;
     round: number;
     winner: string | null;
+    role_distribution: Record<string, number> | null;
     players: PlayerData[];
     events: GameEventData[];
     created_at: string;
@@ -49,6 +50,7 @@ const props = defineProps<{
 }>();
 
 const starting = ref(false);
+const showAllRoles = ref(false);
 
 // Real-time updates via Echo
 const {
@@ -123,10 +125,27 @@ function phaseLabel(p: string): string {
 }
 
 function winnerDisplay(w: string) {
-    return w === 'village'
-        ? { label: 'The Village Wins!', icon: '🏘️', color: 'from-sky-900/50 to-neutral-950' }
-        : { label: 'The Werewolves Win!', icon: '🐺', color: 'from-red-900/50 to-neutral-950' };
+    if (w === 'village') return { label: 'The Village Wins!', icon: '🏘️', color: 'from-sky-900/50 to-neutral-950' };
+    if (w === 'neutral') return { label: 'The Tanner Wins!', icon: '🪚', color: 'from-yellow-900/50 to-neutral-950' };
+    return { label: 'The Werewolves Win!', icon: '🐺', color: 'from-red-900/50 to-neutral-950' };
 }
+
+function displayPlayer(player: PlayerData) {
+    // If showAllRoles is off, hide role for alive players (dead roles are always shown)
+    if (!showAllRoles.value && player.is_alive && !eliminatedPlayerIds.value.has(player.id)) {
+        return { ...player, role: null };
+    }
+    return player;
+}
+
+const roleIcons: Record<string, string> = {
+    Werewolf: '🐺',
+    Villager: '🧑‍🌾',
+    Seer: '🔮',
+    Bodyguard: '🛡️',
+    Hunter: '🏹',
+    Tanner: '🪚',
+};
 </script>
 
 <template>
@@ -149,6 +168,21 @@ function winnerDisplay(w: string) {
 
             <!-- Phase Indicator -->
             <PhaseIndicator :phase="phase" :round="round" :description="description" />
+
+            <!-- Role Distribution (always visible to observer) -->
+            <div v-if="game.role_distribution" class="mt-4 rounded-lg border border-neutral-800/50 bg-neutral-900/50 px-4 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Roles in play:</span>
+                    <span
+                        v-for="(count, role) in game.role_distribution"
+                        :key="role"
+                        class="inline-flex items-center gap-1 rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-medium text-neutral-300"
+                    >
+                        <span>{{ roleIcons[role] || '❓' }}</span>
+                        <span>{{ count }}x {{ role }}</span>
+                    </span>
+                </div>
+            </div>
 
             <!-- Start Button -->
             <div v-if="isPending" class="mt-6 text-center">
@@ -181,12 +215,26 @@ function winnerDisplay(w: string) {
             <div class="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
                 <!-- Player Grid -->
                 <div class="space-y-2">
-                    <h3 class="text-sm font-semibold text-neutral-400">Players</h3>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-neutral-400">Players</h3>
+                        <button
+                            v-if="isRunning || isFinished"
+                            @click="showAllRoles = !showAllRoles"
+                            :class="[
+                                'rounded-md px-2 py-1 text-xs font-medium transition',
+                                showAllRoles
+                                    ? 'bg-indigo-600/20 text-indigo-400'
+                                    : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300',
+                            ]"
+                        >
+                            👁 {{ showAllRoles ? 'Hide' : 'Reveal' }} Roles
+                        </button>
+                    </div>
                     <div class="space-y-2">
                         <PlayerCard
                             v-for="player in game.players"
                             :key="player.id"
-                            :player="player"
+                            :player="displayPlayer(player)"
                             :is-eliminated="eliminatedPlayerIds.has(player.id)"
                             :revealed-role="revealedRoles.get(player.id) ?? null"
                         />

@@ -15,6 +15,8 @@ class GameData extends Data
         public string $phase,
         public int $round,
         public ?GameTeam $winner,
+        /** @var array<string, int>|null */
+        public ?array $role_distribution,
         /** @var PlayerData[] */
         public array $players,
         /** @var GameEventData[] */

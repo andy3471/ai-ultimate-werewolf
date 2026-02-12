@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     thinking: string;
     playerName?: string;
+    forceExpanded?: boolean;
 }>();
 
-const expanded = ref(false);
+const manualExpanded = ref(false);
+const expanded = computed(() => props.forceExpanded || manualExpanded.value);
+
+function toggle() {
+    manualExpanded.value = !manualExpanded.value;
+}
 </script>
 
 <template>
     <div v-if="thinking" class="mt-2">
         <button
-            @click="expanded = !expanded"
+            @click="toggle()"
             class="flex items-center gap-1.5 text-xs text-neutral-500 transition hover:text-neutral-300"
         >
             <svg

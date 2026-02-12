@@ -26,6 +26,8 @@ const roleDisplay = computed(() => {
         villager: { icon: '🧑‍🌾', label: 'Villager', color: 'text-blue-400' },
         seer: { icon: '🔮', label: 'Seer', color: 'text-purple-400' },
         bodyguard: { icon: '🛡️', label: 'Bodyguard', color: 'text-emerald-400' },
+        hunter: { icon: '🏹', label: 'Hunter', color: 'text-amber-400' },
+        tanner: { icon: '🪚', label: 'Tanner', color: 'text-yellow-600' },
     };
     return displayRole.value ? map[displayRole.value] || { icon: '❓', label: displayRole.value, color: 'text-neutral-400' } : null;
 });

@@ -11,4 +11,6 @@ enum GameRole: string
     case Villager = 'villager';
     case Seer = 'seer';
     case Bodyguard = 'bodyguard';
+    case Hunter = 'hunter';
+    case Tanner = 'tanner';
 }

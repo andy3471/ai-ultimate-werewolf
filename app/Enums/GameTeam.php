@@ -9,4 +9,5 @@ enum GameTeam: string
 {
     case Village = 'village';
     case Werewolves = 'werewolves';
+    case Neutral = 'neutral';
 }

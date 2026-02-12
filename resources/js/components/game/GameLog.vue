@@ -111,6 +111,7 @@ function groupEvents(events: GameEventData[]) {
                     :key="event.id"
                     :event="event"
                     :players="players"
+                    :force-show-thinking="showAllThoughts"
                 />
             </template>
         </div>

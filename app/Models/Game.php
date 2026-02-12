@@ -24,6 +24,7 @@ class Game extends Model
             'status' => GameStatusState::class,
             'phase' => GamePhaseState::class,
             'winner' => GameTeam::class,
+            'role_distribution' => 'array',
         ];
     }
 
@@ -50,7 +51,8 @@ class Game extends Model
             phase: $this->phase->getValue(),
             round: $this->round,
             winner: $this->winner,
-            players: $this->players->map(fn (Player $player) => $player->toData())->all(),
+            role_distribution: $this->role_distribution,
+            players: $this->players->map(fn (Player $player) => $player->toData(revealRole: true))->all(),
             events: $this->events->map(fn (GameEvent $event) => $event->toData())->all(),
             created_at: $this->created_at->toISOString(),
         );
