@@ -1,9 +1,32 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import '../css/app.css';
 import { initializeTheme } from './composables/useAppearance';
+
+declare global {
+    interface Window {
+        Pusher: typeof Pusher;
+        Echo: InstanceType<typeof Echo>;
+    }
+}
+
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'pusher',
+    key: import.meta.env.VITE_PUSHER_APP_KEY,
+    wsHost: import.meta.env.VITE_PUSHER_HOST,
+    wsPort: import.meta.env.VITE_PUSHER_PORT ?? 6001,
+    wssPort: import.meta.env.VITE_PUSHER_PORT ?? 6001,
+    forceTLS: (import.meta.env.VITE_PUSHER_SCHEME ?? 'https') === 'https',
+    enabledTransports: ['ws', 'wss'],
+    cluster: 'mt1',
+    disableStats: true,
+});
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 

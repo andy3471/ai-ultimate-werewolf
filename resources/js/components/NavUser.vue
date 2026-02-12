@@ -16,12 +16,12 @@ import UserInfo from '@/components/UserInfo.vue';
 import UserMenuContent from './UserMenuContent.vue';
 
 const page = usePage();
-const user = page.props.auth.user;
+const user = page.props.auth?.user;
 const { isMobile, state } = useSidebar();
 </script>
 
 <template>
-    <SidebarMenu>
+    <SidebarMenu v-if="user">
         <SidebarMenuItem>
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
