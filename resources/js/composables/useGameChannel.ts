@@ -12,6 +12,7 @@ export interface GameEventData {
     public_reasoning: string | null;
     is_public: boolean;
     created_at: string;
+    audio_url: string | null;
 }
 
 export interface PhaseChangedEvent {
@@ -39,7 +40,11 @@ export interface GameEndedEvent {
     message: string;
 }
 
-export function useGameChannel(gameId: number) {
+export interface UseGameChannelOptions {
+    onEvent?: (event: GameEventData) => void;
+}
+
+export function useGameChannel(gameId: number, options: UseGameChannelOptions = {}) {
     const currentPhase = ref<string>('');
     const currentRound = ref<number>(0);
     const phaseDescription = ref<string>('');
@@ -65,12 +70,14 @@ export function useGameChannel(gameId: number) {
 
         channel.listen('.player.acted', (data: PlayerActedEvent) => {
             events.value.push(data.event);
+            options.onEvent?.(data.event);
         });
 
         channel.listen('.player.eliminated', (data: PlayerEliminatedEvent) => {
             events.value.push(data.event);
             eliminatedPlayerIds.value.add(data.playerId);
             revealedRoles.value.set(data.playerId, data.role);
+            options.onEvent?.(data.event);
         });
 
         channel.listen('.game.ended', (data: GameEndedEvent) => {

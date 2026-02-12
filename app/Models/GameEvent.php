@@ -52,6 +52,7 @@ class GameEvent extends Model
             public_reasoning: $this->data['public_reasoning'] ?? null,
             is_public: $this->is_public,
             created_at: $this->created_at->toISOString(),
+            audio_url: $this->audio_url,
             data: ! empty($extraData) ? $extraData : null,
         );
     }

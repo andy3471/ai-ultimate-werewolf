@@ -4,6 +4,7 @@ import GameLog from '@/components/game/GameLog.vue';
 import PhaseIndicator from '@/components/game/PhaseIndicator.vue';
 import PlayerCard from '@/components/game/PlayerCard.vue';
 import { useGameChannel } from '@/composables/useGameChannel';
+import { useAudioQueue } from '@/composables/useAudioQueue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { start } from '@/actions/App/Http/Controllers/GameController';
@@ -31,6 +32,7 @@ interface GameEventData {
     public_reasoning: string | null;
     is_public: boolean;
     created_at: string;
+    audio_url?: string | null;
 }
 
 interface GameData {
@@ -52,7 +54,10 @@ const props = defineProps<{
 const starting = ref(false);
 const showAllRoles = ref(false);
 
-// Real-time updates via Echo
+// Audio playback
+const { enqueue: enqueueAudio, toggleMute, muted } = useAudioQueue();
+
+// Real-time updates via Echo (auto-enqueue audio for new events)
 const {
     currentPhase,
     currentRound,
@@ -62,7 +67,13 @@ const {
     revealedRoles,
     winner: liveWinner,
     winnerMessage,
-} = useGameChannel(props.game.id);
+} = useGameChannel(props.game.id, {
+    onEvent(event) {
+        if (event.audio_url) {
+            enqueueAudio(event.audio_url);
+        }
+    },
+});
 
 // Merged phase: live data takes priority over initial props
 const phase = computed(() => currentPhase.value || props.game.phase);
@@ -166,8 +177,25 @@ const roleIcons: Record<string, string> = {
                 <p v-if="winnerMessage" class="mt-1 text-neutral-300">{{ winnerMessage }}</p>
             </div>
 
-            <!-- Phase Indicator -->
-            <PhaseIndicator :phase="phase" :round="round" :description="description" />
+            <!-- Phase Indicator + Audio Toggle -->
+            <div class="flex items-center gap-3">
+                <div class="flex-1">
+                    <PhaseIndicator :phase="phase" :round="round" :description="description" />
+                </div>
+                <button
+                    @click="toggleMute"
+                    :class="[
+                        'rounded-lg px-3 py-2 text-sm font-medium transition',
+                        muted
+                            ? 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                            : 'bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30',
+                    ]"
+                    :title="muted ? 'Unmute voices' : 'Mute voices'"
+                >
+                    <span v-if="muted">🔇 Muted</span>
+                    <span v-else>🔊 Voices</span>
+                </button>
+            </div>
 
             <!-- Role Distribution (always visible to observer) -->
             <div v-if="game.role_distribution" class="mt-4 rounded-lg border border-neutral-800/50 bg-neutral-900/50 px-4 py-3">

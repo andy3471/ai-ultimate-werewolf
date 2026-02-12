@@ -14,6 +14,7 @@ interface GameEventData {
     public_reasoning: string | null;
     is_public: boolean;
     created_at: string;
+    audio_url?: string | null;
 }
 
 interface PlayerMap {

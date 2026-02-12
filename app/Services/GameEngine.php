@@ -36,6 +36,7 @@ class GameEngine
         protected NightResolver $nightResolver,
         protected VoteResolver $voteResolver,
         protected GameContext $gameContext,
+        protected VoiceService $voiceService,
     ) {}
 
     /**
@@ -63,6 +64,9 @@ class GameEngine
         foreach ($players as $index => $player) {
             $player->update(['role' => $shuffledRoles[$index]]);
         }
+
+        // Assign voices for TTS
+        $this->voiceService->assignVoices($game);
 
         // Transition game state
         $game->status->transitionTo(Running::class);
@@ -441,7 +445,7 @@ class GameEngine
                 $responseQueue->push($addressedId);
             }
 
-            sleep(1);
+            $this->waitForAudio();
         }
 
         // --- Open floor: directed Q&A + weighted random ---
@@ -510,7 +514,7 @@ class GameEngine
                 $responseQueue->push($addressedId);
             }
 
-            sleep(1);
+            $this->waitForAudio();
         }
 
         $game->phase->transitionTo(DayVoting::class);
@@ -518,11 +522,11 @@ class GameEngine
     }
 
     /**
-     * Record a discussion event in the database.
+     * Record a discussion event in the database, with optional TTS audio.
      */
     protected function recordDiscussionEvent(Game $game, Player $player, string $message, mixed $result, ?int $addressedId): GameEvent
     {
-        return $game->events()->create([
+        $event = $game->events()->create([
             'round' => $game->round,
             'phase' => $game->phase->getValue(),
             'type' => 'discussion',
@@ -535,6 +539,48 @@ class GameEngine
             ],
             'is_public' => true,
         ]);
+
+        $this->generateAndAttachAudio($event, $player, $message);
+
+        return $event;
+    }
+
+    /**
+     * Duration of the last generated audio clip (seconds), or 0.
+     */
+    protected float $lastAudioDuration = 0;
+
+    /**
+     * Generate TTS audio for an event and attach the URL.
+     * Stores the real audio duration for waitForAudio().
+     */
+    protected function generateAndAttachAudio(GameEvent $event, Player $player, string $text): void
+    {
+        $this->lastAudioDuration = 0;
+
+        $result = $this->voiceService->generateSpeech($player, $text, $event->id);
+
+        if ($result) {
+            $event->update(['audio_url' => $result['url']]);
+            $this->lastAudioDuration = $result['duration'];
+        }
+    }
+
+    /**
+     * Sleep long enough for the frontend to finish playing the last audio clip.
+     * Uses the real file duration when available, otherwise falls back to 1s.
+     */
+    protected function waitForAudio(): void
+    {
+        if ($this->lastAudioDuration > 0) {
+            // Add a small buffer for network/decode latency
+            $delay = (int) ceil($this->lastAudioDuration) + 1;
+            sleep($delay);
+        } else {
+            sleep(1);
+        }
+
+        $this->lastAudioDuration = 0;
     }
 
     /**
@@ -615,6 +661,8 @@ class GameEngine
             $targetId = $this->resolveTargetId($result['target_id'], $game, excludePlayerId: $player->id);
             $nominations[$player->id] = $targetId;
 
+            $nominationReasoning = $result['public_reasoning'] ?? '';
+
             $event = $game->events()->create([
                 'round' => $game->round,
                 'phase' => $game->phase->getValue(),
@@ -623,12 +671,20 @@ class GameEngine
                 'target_player_id' => $targetId,
                 'data' => [
                     'thinking' => $result['thinking'] ?? '',
-                    'public_reasoning' => $result['public_reasoning'] ?? '',
+                    'public_reasoning' => $nominationReasoning,
                 ],
                 'is_public' => true,
             ]);
 
+            if (! empty($nominationReasoning)) {
+                $this->generateAndAttachAudio($event, $player, $nominationReasoning);
+            }
+
             broadcast(new PlayerActed($game->id, $event->toData()));
+
+            if (! empty($nominationReasoning)) {
+                $this->waitForAudio();
+            }
         }
 
         // --- Step 2: Determine who goes on trial (most nominations) ---
@@ -681,6 +737,8 @@ class GameEngine
             model: $accused->model,
         );
 
+        $defenseMessage = $defenseResult['message'] ?? (string) $defenseResult;
+
         $defenseEvent = $game->events()->create([
             'round' => $game->round,
             'phase' => $game->phase->getValue(),
@@ -688,13 +746,15 @@ class GameEngine
             'actor_player_id' => $accusedId,
             'data' => [
                 'thinking' => $defenseResult['thinking'] ?? '',
-                'message' => $defenseResult['message'] ?? (string) $defenseResult,
+                'message' => $defenseMessage,
             ],
             'is_public' => true,
         ]);
+
+        $this->generateAndAttachAudio($defenseEvent, $accused, $defenseMessage);
         broadcast(new PlayerActed($game->id, $defenseEvent->toData()));
 
-        sleep(1);
+        $this->waitForAudio();
 
         // --- Step 4: Trial vote (yes = eliminate, no = spare) ---
         $yesVotes = 0;
@@ -842,6 +902,8 @@ class GameEngine
                 model: $player->model,
             );
 
+            $message = $result['message'] ?? (string) $result;
+
             $event = $game->events()->create([
                 'round' => $game->round,
                 'phase' => $game->phase->getValue(),
@@ -849,12 +911,16 @@ class GameEngine
                 'actor_player_id' => $player->id,
                 'data' => [
                     'thinking' => $result['thinking'] ?? '',
-                    'message' => $result['message'] ?? (string) $result,
+                    'message' => $message,
                 ],
                 'is_public' => true,
             ]);
 
+            $this->generateAndAttachAudio($event, $player, $message);
+
             broadcast(new PlayerActed($game->id, $event->toData()));
+
+            $this->waitForAudio();
         } catch (\Throwable $e) {
             Log::warning('Failed to get dying speech', [
                 'player_id' => $player->id,
@@ -897,6 +963,8 @@ class GameEngine
             if ($target && $target->is_alive) {
                 $target->update(['is_alive' => false]);
 
+                $hunterMessage = "{$deadPlayer->name} was the Hunter and shoots {$target->name} with their dying breath! {$target->name} was a {$target->role->value}.";
+
                 $event = $game->events()->create([
                     'round' => $game->round,
                     'phase' => $game->phase->getValue(),
@@ -906,11 +974,13 @@ class GameEngine
                     'data' => [
                         'thinking' => $result['thinking'] ?? '',
                         'public_reasoning' => $result['public_reasoning'] ?? '',
-                        'message' => "{$deadPlayer->name} was the Hunter and shoots {$target->name} with their dying breath! {$target->name} was a {$target->role->value}.",
+                        'message' => $hunterMessage,
                         'role_revealed' => $target->role->value,
                     ],
                     'is_public' => true,
                 ]);
+
+                $this->generateAndAttachAudio($event, $deadPlayer, $hunterMessage);
 
                 broadcast(new PlayerEliminated(
                     $game->id,
@@ -918,6 +988,8 @@ class GameEngine
                     $target->id,
                     $target->role->value,
                 ));
+
+                $this->waitForAudio();
 
                 // The shot player also gets a dying speech
                 $this->giveDyingSpeech($game, $target);

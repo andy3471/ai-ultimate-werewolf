@@ -23,8 +23,13 @@ abstract class GamePhaseState extends State
             ->allowTransition(Dawn::class, GameOver::class)
             ->allowTransition(DayDiscussion::class, DayVoting::class)
             ->allowTransition(DayVoting::class, Dusk::class)
+            ->allowTransition(DayVoting::class, GameOver::class)
             ->allowTransition(Dusk::class, NightWerewolf::class)
-            ->allowTransition(Dusk::class, GameOver::class);
+            ->allowTransition(Dusk::class, GameOver::class)
+            // Win condition can be checked after any night phase (e.g. hunter revenge kill)
+            ->allowTransition(NightWerewolf::class, GameOver::class)
+            ->allowTransition(NightSeer::class, GameOver::class)
+            ->allowTransition(NightBodyguard::class, GameOver::class);
     }
 
     public function getValue(): string
