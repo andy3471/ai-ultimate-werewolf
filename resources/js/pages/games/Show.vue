@@ -6,7 +6,7 @@ import PlayerCard from '@/components/game/PlayerCard.vue';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useAudioQueue } from '@/composables/useAudioQueue';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { start } from '@/actions/App/Http/Controllers/GameController';
 
 interface PlayerData {
@@ -54,14 +54,23 @@ const props = defineProps<{
 const starting = ref(false);
 const showAllRoles = ref(false);
 
-// Audio playback
-const { enqueue: enqueueAudio, toggleMute, muted } = useAudioQueue();
+// Audio playback — unlock on first user click so autoplay policy allows audio
+const { enqueue: enqueueAudio, toggleMute, unlock: unlockAudio, muted } = useAudioQueue();
+
+onMounted(() => {
+    function handleFirstClick() {
+        unlockAudio();
+        document.removeEventListener('click', handleFirstClick);
+    }
+    document.addEventListener('click', handleFirstClick);
+});
 
 // Real-time updates via Echo (auto-enqueue audio for new events)
 const {
     currentPhase,
     currentRound,
     phaseDescription,
+    narration: liveNarration,
     events: liveEvents,
     eliminatedPlayerIds,
     revealedRoles,
@@ -71,6 +80,11 @@ const {
     onEvent(event) {
         if (event.audio_url) {
             enqueueAudio(event.audio_url);
+        }
+    },
+    onPhaseChanged(data) {
+        if (data.narration_audio_url) {
+            enqueueAudio(data.narration_audio_url);
         }
     },
 });
@@ -180,7 +194,7 @@ const roleIcons: Record<string, string> = {
             <!-- Phase Indicator + Audio Toggle -->
             <div class="flex items-center gap-3">
                 <div class="flex-1">
-                    <PhaseIndicator :phase="phase" :round="round" :description="description" />
+                    <PhaseIndicator :phase="phase" :round="round" :description="description" :narration="liveNarration" />
                 </div>
                 <button
                     @click="toggleMute"

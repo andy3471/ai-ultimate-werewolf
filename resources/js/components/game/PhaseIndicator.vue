@@ -5,6 +5,7 @@ const props = defineProps<{
     phase: string;
     round: number;
     description: string;
+    narration?: string | null;
 }>();
 
 const phaseDisplay = computed(() => {
@@ -37,7 +38,8 @@ const isNight = computed(() => props.phase.startsWith('night_'));
                 <span class="text-3xl">{{ phaseDisplay.icon }}</span>
                 <div>
                     <h2 class="text-lg font-bold text-neutral-100">{{ phaseDisplay.label }}</h2>
-                    <p class="text-sm text-neutral-400">{{ description }}</p>
+                    <p v-if="narration" class="text-sm italic text-violet-300/80">{{ narration }}</p>
+                    <p v-else class="text-sm text-neutral-400">{{ description }}</p>
                 </div>
             </div>
             <div v-if="round > 0" class="text-right">

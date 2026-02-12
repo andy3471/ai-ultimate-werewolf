@@ -20,6 +20,8 @@ export interface PhaseChangedEvent {
     phase: string;
     round: number;
     description: string;
+    narration: string | null;
+    narration_audio_url: string | null;
 }
 
 export interface PlayerActedEvent {
@@ -42,12 +44,14 @@ export interface GameEndedEvent {
 
 export interface UseGameChannelOptions {
     onEvent?: (event: GameEventData) => void;
+    onPhaseChanged?: (data: PhaseChangedEvent) => void;
 }
 
 export function useGameChannel(gameId: number, options: UseGameChannelOptions = {}) {
     const currentPhase = ref<string>('');
     const currentRound = ref<number>(0);
     const phaseDescription = ref<string>('');
+    const narration = ref<string | null>(null);
     const events = ref<GameEventData[]>([]);
     const eliminatedPlayerIds = ref<Set<number>>(new Set());
     const revealedRoles = ref<Map<number, string>>(new Map());
@@ -66,6 +70,8 @@ export function useGameChannel(gameId: number, options: UseGameChannelOptions = 
             currentPhase.value = data.phase;
             currentRound.value = data.round;
             phaseDescription.value = data.description;
+            narration.value = data.narration;
+            options.onPhaseChanged?.(data);
         });
 
         channel.listen('.player.acted', (data: PlayerActedEvent) => {
@@ -103,6 +109,7 @@ export function useGameChannel(gameId: number, options: UseGameChannelOptions = 
         currentPhase,
         currentRound,
         phaseDescription,
+        narration,
         events,
         eliminatedPlayerIds,
         revealedRoles,

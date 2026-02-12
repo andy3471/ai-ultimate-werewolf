@@ -167,6 +167,7 @@ class GameContext
             'elimination' => $event->data['message'] ?? null,
             'bodyguard_save' => $event->data['message'] ?? null,
             'hunter_shot' => $event->data['message'] ?? null,
+            'narration' => null, // Narrator flavour text — skip for AI context
             'no_death' => $event->data['message'] ?? null,
             'vote_tally' => $event->data['message'] ?? null,
             'vote_tie' => $event->data['message'] ?? null,

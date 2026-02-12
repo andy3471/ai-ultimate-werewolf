@@ -568,15 +568,21 @@ class GameEngine
 
     /**
      * Sleep long enough for the frontend to finish playing the last audio clip.
-     * Uses the real file duration when available, otherwise falls back to 1s.
+     * Uses the real file duration when available, otherwise a sensible fallback.
      */
     protected function waitForAudio(): void
     {
         if ($this->lastAudioDuration > 0) {
-            // Add a small buffer for network/decode latency
-            $delay = (int) ceil($this->lastAudioDuration) + 1;
+            // Sleep for the actual audio duration + buffer for network/decode latency
+            $delay = (int) ceil($this->lastAudioDuration) + 2;
             sleep($delay);
+        } elseif ($this->voiceService->isAvailable()) {
+            // Voices are enabled but this particular clip failed to generate.
+            // Use a longer fallback so we don't overtake the frontend audio queue
+            // (a previous clip may still be playing).
+            sleep(4);
         } else {
+            // No voices at all — just a brief pause for readability
             sleep(1);
         }
 
@@ -1033,7 +1039,7 @@ class GameEngine
             ]);
 
             broadcast(new GameEnded($game->id, GameTeam::Neutral->value, "{$eliminatedByVillage->name} was the Tanner and wins!"));
-            broadcast(new GamePhaseChanged($game->id, 'game_over', $game->round, 'The Tanner wins!'));
+            $this->broadcastPhaseChange($game);
 
             return true;
         }
@@ -1077,7 +1083,7 @@ class GameEngine
             ]);
 
             broadcast(new GameEnded($game->id, $winner->value, $message));
-            broadcast(new GamePhaseChanged($game->id, 'game_over', $game->round, $message));
+            $this->broadcastPhaseChange($game);
 
             return true;
         }
@@ -1186,11 +1192,43 @@ class GameEngine
         $game->refresh();
         $phase = $game->phase;
 
+        // Generate AI narration for key phases
+        $narration = $this->voiceService->narrate($game, $phase);
+
+        $narrationText = null;
+        $narrationAudioUrl = null;
+
+        if ($narration) {
+            $narrationText = $narration['text'];
+            $narrationAudioUrl = $narration['url'];
+
+            // Record narration as a game event (visible in log)
+            $game->events()->create([
+                'round' => $game->round,
+                'phase' => $phase->getValue(),
+                'type' => 'narration',
+                'data' => [
+                    'message' => $narrationText,
+                ],
+                'audio_url' => $narrationAudioUrl,
+                'is_public' => true,
+            ]);
+
+            $this->lastAudioDuration = $narration['duration'];
+        }
+
         broadcast(new GamePhaseChanged(
             $game->id,
             $phase->getValue(),
             $game->round,
             $phase->description(),
+            narration: $narrationText,
+            narration_audio_url: $narrationAudioUrl,
         ));
+
+        // Wait for narrator audio to finish before proceeding
+        if ($narration) {
+            $this->waitForAudio();
+        }
     }
 }

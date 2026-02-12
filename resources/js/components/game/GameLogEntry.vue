@@ -62,6 +62,7 @@ const typeConfig = computed(() => {
         elimination: { icon: '⚖️', color: 'border-red-800/50' },
         bodyguard_save: { icon: '🛡️', color: 'border-emerald-800/50' },
         hunter_shot: { icon: '🏹', color: 'border-amber-800/50' },
+        narration: { icon: '📜', color: 'border-violet-800/50' },
         no_death: { icon: '☀️', color: 'border-amber-800/50' },
         vote_tally: { icon: '📊', color: 'border-neutral-700/50' },
         vote_tie: { icon: '🤝', color: 'border-neutral-700/50' },
@@ -77,6 +78,8 @@ const displayText = computed(() => {
     const msg = props.event.message;
 
     switch (type) {
+        case 'narration':
+            return msg ?? '';
         case 'discussion':
         case 'dying_speech':
         case 'defense_speech':
@@ -104,11 +107,14 @@ const displayText = computed(() => {
 </script>
 
 <template>
-    <div :class="['rounded-lg border-l-2 bg-neutral-900/50 p-3', typeConfig.color]">
+    <div :class="['rounded-lg border-l-2 p-3', event.type === 'narration' ? 'bg-violet-950/30' : 'bg-neutral-900/50', typeConfig.color]">
         <div class="flex items-start gap-2">
             <span class="mt-0.5 text-base">{{ typeConfig.icon }}</span>
             <div class="min-w-0 flex-1">
-                <div class="text-sm">
+                <div v-if="event.type === 'narration'" class="text-sm italic text-violet-300/90">
+                    {{ displayText }}
+                </div>
+                <div v-else class="text-sm">
                     <span v-if="actorName" class="font-semibold text-neutral-200">{{ actorName }}</span>
                     <span v-if="addressedName && event.type === 'discussion'" class="text-sky-400/80"> → {{ addressedName }}</span>
                     <span v-if="actorName && displayText" class="text-neutral-400"> {{ ['discussion', 'dying_speech', 'defense_speech'].includes(event.type) ? ':' : '' }} </span>

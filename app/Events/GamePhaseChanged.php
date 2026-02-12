@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Data\GameData;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -18,6 +17,8 @@ class GamePhaseChanged implements ShouldBroadcastNow
         public string $phase,
         public int $round,
         public string $description,
+        public ?string $narration = null,
+        public ?string $narration_audio_url = null,
     ) {}
 
     public function broadcastOn(): Channel
