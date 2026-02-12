@@ -1,0 +1,17 @@
+{
+    "agents": [
+        "cursor"
+    ],
+    "guidelines": true,
+    "herd_mcp": false,
+    "mcp": true,
+    "packages": [
+        "laravel/fortify"
+    ],
+    "sail": true,
+    "skills": [
+        "wayfinder-development",
+        "pest-testing",
+        "developing-with-fortify"
+    ]
+}
