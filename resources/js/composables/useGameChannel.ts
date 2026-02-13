@@ -1,12 +1,12 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 
 export interface GameEventData {
-    id: number;
+    id: string;
     round: number;
     phase: string;
     type: string;
-    actor_player_id: number | null;
-    target_player_id: number | null;
+    actor_player_id: string | null;
+    target_player_id: string | null;
     message: string | null;
     thinking: string | null;
     public_reasoning: string | null;
@@ -16,7 +16,7 @@ export interface GameEventData {
 }
 
 export interface PhaseChangedEvent {
-    gameId: number;
+    gameId: string;
     phase: string;
     round: number;
     description: string;
@@ -25,19 +25,19 @@ export interface PhaseChangedEvent {
 }
 
 export interface PlayerActedEvent {
-    gameId: number;
+    gameId: string;
     event: GameEventData;
 }
 
 export interface PlayerEliminatedEvent {
-    gameId: number;
+    gameId: string;
     event: GameEventData;
-    playerId: number;
+    playerId: string;
     role: string;
 }
 
 export interface GameEndedEvent {
-    gameId: number;
+    gameId: string;
     winner: string;
     message: string;
 }
@@ -47,14 +47,14 @@ export interface UseGameChannelOptions {
     onPhaseChanged?: (data: PhaseChangedEvent) => void;
 }
 
-export function useGameChannel(gameId: number, options: UseGameChannelOptions = {}) {
+export function useGameChannel(gameId: string, options: UseGameChannelOptions = {}) {
     const currentPhase = ref<string>('');
     const currentRound = ref<number>(0);
     const phaseDescription = ref<string>('');
     const narration = ref<string | null>(null);
     const events = ref<GameEventData[]>([]);
-    const eliminatedPlayerIds = ref<Set<number>>(new Set());
-    const revealedRoles = ref<Map<number, string>>(new Map());
+    const eliminatedPlayerIds = ref<Set<string>>(new Set());
+    const revealedRoles = ref<Map<string, string>>(new Map());
     const winner = ref<string | null>(null);
     const winnerMessage = ref<string>('');
     const isConnected = ref(false);

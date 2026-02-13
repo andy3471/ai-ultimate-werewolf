@@ -121,7 +121,7 @@ class VoiceService
      *
      * @return array{url: string, duration: float}|null
      */
-    public function generateSpeech(Player $player, string $text, int $eventId): ?array
+    public function generateSpeech(Player $player, string $text, string $eventId): ?array
     {
         if (! $this->isAvailable() || empty($player->voice) || empty(trim($text))) {
             return null;
@@ -326,9 +326,10 @@ PROMPT,
         switch ($phase) {
             case 'night_werewolf':
                 if ($round === 1) {
-                    $playerNames = $game->players()->pluck('name')->implode(', ');
-                    $parts[] = "Announce: It is Night 1. The players in this game are: {$playerNames}.";
-                    $parts[] = "The werewolves open their eyes for the first time to see who their fellow wolves are.";
+                    $playerCount = $game->players()->count();
+                    $parts[] = "Announce: It is Night 1. {$playerCount} players have gathered in the village.";
+                    $parts[] = 'The village falls asleep. Somewhere in the darkness, the werewolves stir.';
+                    $parts[] = 'IMPORTANT: Do NOT list or name any players. Do NOT name or hint at who the werewolves are.';
                 } else {
                     $parts[] = "Announce: Night {$round} begins. {$aliveCount} players remain.";
                     // What happened during the day
@@ -341,6 +342,7 @@ PROMPT,
                         $parts[] = "Earlier today: {$noElim->data['message']}";
                     }
                     $parts[] = 'The werewolves must now choose their next victim.';
+                    $parts[] = 'IMPORTANT: Do NOT name or hint at who the werewolves are.';
                 }
                 break;
 
@@ -389,7 +391,7 @@ PROMPT,
 
             case 'day_voting':
                 $parts[] = "Announce: Discussion is over. It's time to vote.";
-                $parts[] = "Each player will now nominate someone for elimination, then the village will hold a trial.";
+                $parts[] = 'Each player will now nominate someone for elimination, then the village will hold a trial.';
                 break;
 
             case 'game_over':

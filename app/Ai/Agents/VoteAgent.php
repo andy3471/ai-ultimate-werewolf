@@ -43,7 +43,7 @@ class VoteAgent implements Agent, HasStructuredOutput
         It is time to vote. Choose one player to eliminate from the game.
         Consider the discussion that just happened, your knowledge, and your strategy.
 
-        IMPORTANT: You must vote for an alive player. Use their player ID number (shown in brackets like [1]).
+        IMPORTANT: You must vote for an alive player. Use their player number (shown in brackets like [1]).
         You cannot vote for yourself. You cannot vote for dead players.
         Explain your reasoning publicly (other players will see this).
         INSTRUCTIONS;
@@ -56,7 +56,7 @@ class VoteAgent implements Agent, HasStructuredOutput
                 ->description('Your private thought process. Analyze the discussion, consider alliances and suspicions, and decide your vote strategically.')
                 ->required(),
             'target_id' => $schema->integer()
-                ->description('The ID of the player you are voting to eliminate.')
+                ->description('The player number (shown in brackets) of the player you are voting to eliminate. Use 0 to vote NO/spare during a trial.')
                 ->required(),
             'public_reasoning' => $schema->string()
                 ->description('What you say out loud about your vote. This is public and other players will hear it.')

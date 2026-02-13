@@ -44,7 +44,7 @@ class NightActionAgent implements Agent, HasStructuredOutput
         {$this->actionPrompt}
 
         IMPORTANT: You must choose a valid target from the alive players listed above.
-        Use the player ID number (shown in brackets like [1]) as target_id.
+        Use the player number (shown in brackets like [1]) as target_id.
         Think carefully about your choice and explain your reasoning.
         INSTRUCTIONS;
     }
@@ -56,7 +56,7 @@ class NightActionAgent implements Agent, HasStructuredOutput
                 ->description('Your private internal thought process. Analyze the situation, consider your options, and reason about the best choice.')
                 ->required(),
             'target_id' => $schema->integer()
-                ->description('The ID of the player you are targeting.')
+                ->description('The player number (shown in brackets) of the player you are targeting.')
                 ->required(),
             'public_reasoning' => $schema->string()
                 ->description('A brief justification for your choice (stored for post-game review).')

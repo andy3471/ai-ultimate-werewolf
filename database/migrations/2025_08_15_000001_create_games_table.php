@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('games', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
             $table->string('status')->default('pending');
             $table->string('phase')->default('lobby');
             $table->unsignedInteger('round')->default(0);

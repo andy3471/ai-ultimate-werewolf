@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Data\CreateGameData;
 use App\Jobs\RunGame;
 use App\Models\Game;
-use App\Models\Player;
 use App\States\GamePhase\Lobby;
 use App\States\GameStatus\Pending;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,6 +45,7 @@ class GameController extends Controller
         ]);
 
         $game = Game::create([
+            'user_id' => auth()->id(),
             'status' => Pending::getMorphClass(),
             'phase' => Lobby::getMorphClass(),
             'round' => 0,
@@ -70,11 +70,14 @@ class GameController extends Controller
 
         return Inertia::render('games/Show', [
             'game' => $game->toData(),
+            'canStart' => Gate::allows('start', $game),
         ]);
     }
 
     public function start(Game $game): RedirectResponse
     {
+        Gate::authorize('start', $game);
+
         if ($game->status instanceof \App\States\GameStatus\Finished) {
             return back()->with('error', 'Game has already finished.');
         }
@@ -147,6 +150,14 @@ class GameController extends Controller
             'Dramatic and emotional — reacts strongly to events and makes passionate speeches',
             'Deceptive and cunning — skilled at misdirection and planting false leads',
             'Trusting and cooperative — wants to build consensus and work as a team',
+            'Sarcastic and dry-witted — deflects tension with humour and backhanded compliments',
+            'Old-school sheriff — speaks in folksy wisdom, trusts gut instinct over hard evidence',
+            'Conspiracy theorist — reads into everything, connects dots that may not exist',
+            'Cold and calculating — treats the game like a chess match, emotionally detached',
+            'Loyal protector — fixates on defending one player and becomes suspicious of their accusers',
+            'Wildcard — unpredictable and chaotic, votes on vibes and changes strategy constantly',
+            'People-pleaser — agrees with whoever spoke last, terrified of being the odd one out',
+            'Veteran strategist — references past rounds constantly and builds long-running theories',
         ];
     }
 }

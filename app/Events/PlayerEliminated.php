@@ -14,9 +14,9 @@ class PlayerEliminated implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public int $gameId,
+        public string $gameId,
         public GameEventData $event,
-        public int $playerId,
+        public string $playerId,
         public string $role,
     ) {}
 

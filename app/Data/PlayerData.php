@@ -10,7 +10,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 class PlayerData extends Data
 {
     public function __construct(
-        public int $id,
+        public string $id,
         public string $name,
         public string $provider,
         public string $model,

@@ -13,7 +13,7 @@ class GamePhaseChanged implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public int $gameId,
+        public string $gameId,
         public string $phase,
         public int $round,
         public string $description,

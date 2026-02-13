@@ -32,6 +32,31 @@ class DiscussionAgent implements Agent, HasStructuredOutput
         $role = app(RoleRegistry::class)->get($this->player->role);
         $baseInstructions = $role->baseInstructions();
 
+        $isFirstRound = $this->game->round <= 1;
+
+        $discussionGuidance = $isFirstRound
+            ? <<<'EARLY'
+            ## Day Discussion — Early Game
+            It is now the day phase. This is the very beginning of the game, so there is
+            little concrete evidence to work with. DO NOT accuse anyone of specific wrongdoing
+            or blame anyone for "being quiet" or "acting suspicious" — nobody has done anything yet.
+
+            Instead, share your general thoughts: express concern about the night's events,
+            suggest a strategy for the village, ask open questions to get conversation flowing,
+            or share your gut feelings. In real Werewolf, the first day is about reading the room
+            and building alliances, not making baseless accusations.
+
+            You may gently probe or express mild suspicion, but it must be framed as a feeling or
+            a question — never as a confident accusation. Nobody has enough information yet.
+            EARLY
+            : <<<'LATE'
+            ## Day Discussion
+            It is now the day phase. Share your thoughts with the other players.
+            You should discuss who you think is suspicious and why, defend yourself if accused,
+            and try to influence the upcoming vote. Base your suspicions on actual observations:
+            what people said, how they voted, patterns in the deaths, or contradictions you noticed.
+            LATE;
+
         return <<<INSTRUCTIONS
         {$baseInstructions}
 
@@ -39,10 +64,7 @@ class DiscussionAgent implements Agent, HasStructuredOutput
 
         {$this->context}
 
-        ## Day Discussion
-        It is now the day phase. Share your thoughts with the other players.
-        You should discuss who you think is suspicious and why, defend yourself if accused,
-        and try to influence the upcoming vote.
+        {$discussionGuidance}
 
         Keep your message concise (2-4 sentences). Speak naturally as your character would.
         Remember your personality and role when deciding what to say and how to say it.
@@ -52,7 +74,7 @@ class DiscussionAgent implements Agent, HasStructuredOutput
 
         ## Addressing Other Players
         You can direct a question or challenge to a specific player by setting addressed_player_id
-        to their player ID. That player will then get a chance to respond next.
+        to their player number (shown in brackets like [1]). That player will then get a chance to respond next.
         Set addressed_player_id to 0 if you are not addressing anyone specific.
 
         ## Passing
@@ -73,7 +95,7 @@ class DiscussionAgent implements Agent, HasStructuredOutput
                 ->description('Your public statement to the group. This is what the other players will hear. If passing, leave this brief or empty.')
                 ->required(),
             'addressed_player_id' => $schema->integer()
-                ->description('The player ID you are directing a question or challenge to. Set to 0 if not addressing anyone specific.')
+                ->description('The player number (shown in brackets) you are directing a question or challenge to. Set to 0 if not addressing anyone specific.')
                 ->required(),
             'wants_to_speak' => $schema->boolean()
                 ->description('Set to true to speak, false to pass (skip your turn). You must speak in the opening round.')

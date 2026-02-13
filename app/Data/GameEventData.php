@@ -9,12 +9,12 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 class GameEventData extends Data
 {
     public function __construct(
-        public int $id,
+        public string $id,
         public int $round,
         public string $phase,
         public string $type,
-        public ?int $actor_player_id,
-        public ?int $target_player_id,
+        public ?string $actor_player_id,
+        public ?string $target_player_id,
         public ?string $message,
         public ?string $thinking,
         public ?string $public_reasoning,

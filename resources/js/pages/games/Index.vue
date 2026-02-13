@@ -4,7 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { create, show } from '@/actions/App/Http/Controllers/GameController';
 
 interface PlayerData {
-    id: number;
+    id: string;
     name: string;
     provider: string;
     model: string;
@@ -13,7 +13,7 @@ interface PlayerData {
 }
 
 interface GameData {
-    id: number;
+    id: string;
     status: string;
     phase: string;
     round: number;

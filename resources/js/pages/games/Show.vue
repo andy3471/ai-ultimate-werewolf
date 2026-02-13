@@ -11,7 +11,7 @@ import { computed, ref, onMounted } from 'vue';
 import { start } from '@/actions/App/Http/Controllers/GameController';
 
 interface PlayerData {
-    id: number;
+    id: string;
     name: string;
     provider: string;
     model: string;
@@ -22,12 +22,12 @@ interface PlayerData {
 }
 
 interface GameEventData {
-    id: number;
+    id: string;
     round: number;
     phase: string;
     type: string;
-    actor_player_id: number | null;
-    target_player_id: number | null;
+    actor_player_id: string | null;
+    target_player_id: string | null;
     message: string | null;
     thinking: string | null;
     public_reasoning: string | null;
@@ -37,7 +37,8 @@ interface GameEventData {
 }
 
 interface GameData {
-    id: number;
+    id: string;
+    userId: string;
     status: string;
     phase: string;
     round: number;
@@ -50,6 +51,7 @@ interface GameData {
 
 const props = defineProps<{
     game: GameData;
+    canStart: boolean;
 }>();
 
 const starting = ref(false);
@@ -116,7 +118,7 @@ const allEvents = computed(() => {
 
 // Player map for the log component
 const playerMap = computed(() => {
-    const map: Record<number, { name: string; provider: string }> = {};
+    const map: Record<string, { name: string; provider: string }> = {};
     for (const player of props.game.players) {
         map[player.id] = { name: player.name, provider: player.provider };
     }
@@ -124,6 +126,7 @@ const playerMap = computed(() => {
 });
 
 const isPending = computed(() => props.game.status === 'pending' && !currentPhase.value && !starting.value);
+const showStartButton = computed(() => isPending.value && props.canStart);
 const isRunning = computed(() => props.game.status === 'running' || !!currentPhase.value || starting.value);
 const isFinished = computed(() => !!winner.value);
 
@@ -259,8 +262,13 @@ const roleInfo: Record<string, { icon: string; team: string; teamColor: string; 
                 </div>
             </div>
 
+            <!-- Pending notice for non-owners -->
+            <div v-if="isPending && !canStart" class="mt-6 text-center">
+                <p class="text-sm text-neutral-500">Waiting for the game creator to start the game...</p>
+            </div>
+
             <!-- Start Button -->
-            <div v-if="isPending" class="mt-6 text-center">
+            <div v-if="showStartButton" class="mt-6 text-center">
                 <button
                     @click="startGame"
                     :disabled="starting"

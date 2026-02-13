@@ -3,18 +3,20 @@
 namespace App\Models;
 
 use App\Data\GameData;
-use App\Data\GameEventData;
-use App\Data\PlayerData;
 use App\Enums\GameTeam;
 use App\States\GamePhase\GamePhaseState;
 use App\States\GameStatus\GameStatusState;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\ModelStates\HasStates;
 
 class Game extends Model
 {
-    use HasStates;
+    /** @use HasFactory<\Database\Factories\GameFactory> */
+    use HasFactory, HasStates, HasUuids;
 
     protected $guarded = [];
 
@@ -26,6 +28,11 @@ class Game extends Model
             'winner' => GameTeam::class,
             'role_distribution' => 'array',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function players(): HasMany
@@ -47,6 +54,7 @@ class Game extends Model
     {
         return new GameData(
             id: $this->id,
+            userId: $this->user_id,
             status: $this->status->getValue(),
             phase: $this->phase->getValue(),
             round: $this->round,

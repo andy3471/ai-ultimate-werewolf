@@ -4,7 +4,7 @@ import RoleTooltip from './RoleTooltip.vue';
 
 const props = defineProps<{
     player: {
-        id: number;
+        id: string;
         name: string;
         provider: string;
         model: string;

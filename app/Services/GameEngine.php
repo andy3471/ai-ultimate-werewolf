@@ -159,7 +159,7 @@ class GameEngine
                 $context .= "\n\n## Werewolf Pack Discussion\n";
                 $context .= "Your fellow wolves have already proposed targets:\n";
                 foreach ($proposals as $proposal) {
-                    $context .= "- {$proposal['name']} wants to kill [{$proposal['target_id']}]: \"{$proposal['reasoning']}\"\n";
+                    $context .= "- {$proposal['name']} wants to kill {$proposal['target_name']}: \"{$proposal['reasoning']}\"\n";
                 }
                 $context .= "\nConsider agreeing with your pack for a coordinated attack, unless you have a strong reason to disagree.";
             }
@@ -179,10 +179,12 @@ class GameEngine
 
             $targetId = $this->resolveTargetId($result['target_id'], $game, excludePlayerId: $werewolf->id);
 
+            $targetPlayer = $targetId ? Player::find($targetId) : null;
             $proposals[] = [
                 'wolf_id' => $werewolf->id,
                 'name' => $werewolf->name,
                 'target_id' => $targetId,
+                'target_name' => $targetPlayer?->name ?? 'unknown',
                 'reasoning' => $result['public_reasoning'] ?? '',
             ];
 
@@ -429,12 +431,17 @@ class GameEngine
 
             $context = $this->gameContext->buildForPlayer($game, $player);
 
+            $isFirstRound = $game->round <= 1;
+            $openingPrompt = $isFirstRound
+                ? 'Share your opening thoughts with the group. React to last night\'s events, share your feelings, suggest a strategy, or ask a question. Do not make specific accusations yet — there is no evidence to base them on. You may address a question to a specific player by setting addressed_player_id to their player number.'
+                : 'Share your opening thoughts for this round. Reflect on what happened in previous rounds — who acted suspiciously, how people voted, and any patterns you noticed. You may address a question to a specific player by setting addressed_player_id to their player number.';
+
             $result = DiscussionAgent::make(
                 player: $player,
                 game: $game,
                 context: $context,
             )->prompt(
-                'Share your opening thoughts with the group. Who do you suspect and why? You may address a question to a specific player by setting addressed_player_id to their ID.',
+                $openingPrompt,
                 provider: $player->provider,
                 model: $player->model,
             );
@@ -561,7 +568,7 @@ class GameEngine
     /**
      * Record a discussion event in the database, with optional TTS audio.
      */
-    protected function recordDiscussionEvent(Game $game, Player $player, string $message, mixed $result, ?int $addressedId): GameEvent
+    protected function recordDiscussionEvent(Game $game, Player $player, string $message, mixed $result, ?string $addressedId): GameEvent
     {
         $event = $game->events()->create([
             'round' => $game->round,
@@ -627,14 +634,32 @@ class GameEngine
     }
 
     /**
-     * Validate an addressed_player_id from AI output.
+     * Resolve a player number (1-based order) from AI output to the real player UUID.
+     * Returns null if the player is not alive, is self, or the number is invalid.
+     */
+    protected function resolvePlayerNumberToId(mixed $number, Game $game): ?string
+    {
+        $number = (int) $number;
+
+        if ($number <= 0) {
+            return null;
+        }
+
+        // Player numbers are 1-based (order + 1)
+        $player = $game->players()->where('order', $number - 1)->first();
+
+        return $player?->id;
+    }
+
+    /**
+     * Validate an addressed_player_id from AI output (a player number, not a UUID).
      * Returns null if 0 or not a valid alive player (or is self).
      */
-    protected function resolveAddressedPlayerId(mixed $id, Game $game, int $selfId): ?int
+    protected function resolveAddressedPlayerId(mixed $number, Game $game, string $selfId): ?string
     {
-        $id = (int) $id;
+        $id = $this->resolvePlayerNumberToId($number, $game);
 
-        if ($id <= 0 || $id === $selfId) {
+        if (! $id || $id === $selfId) {
             return null;
         }
 
@@ -804,21 +829,23 @@ class GameEngine
         $noVotes = 0;
         $voters = $alivePlayers->filter(fn (Player $p) => $p->id !== $accusedId);
 
+        $accusedNumber = $accused->order + 1;
+
         foreach ($voters as $voter) {
             $voteContext = $this->gameContext->buildForPlayer($game, $voter);
-            $voteContext .= "\n\n## TRIAL VOTE\n{$accused->name} is on trial. You heard their defense. Vote YES to eliminate them or NO to spare them.\nSet target_id to {$accusedId} if you vote YES (eliminate), or 0 if you vote NO (spare).";
+            $voteContext .= "\n\n## TRIAL VOTE\n{$accused->name} [{$accusedNumber}] is on trial. You heard their defense. Vote YES to eliminate them or NO to spare them.\nSet target_id to {$accusedNumber} if you vote YES (eliminate), or 0 if you vote NO (spare).";
 
             $voteResult = VoteAgent::make(
                 player: $voter,
                 game: $game,
                 context: $voteContext,
             )->prompt(
-                "Vote on {$accused->name}'s fate. target_id={$accusedId} for YES (eliminate), target_id=0 for NO (spare).",
+                "Vote on {$accused->name}'s fate. target_id={$accusedNumber} for YES (eliminate), target_id=0 for NO (spare).",
                 provider: $voter->provider,
                 model: $voter->model,
             );
 
-            $votedYes = ((int) ($voteResult['target_id'] ?? 0)) === $accusedId;
+            $votedYes = ((int) ($voteResult['target_id'] ?? 0)) === $accusedNumber;
 
             if ($votedYes) {
                 $yesVotes++;
@@ -1217,21 +1244,24 @@ class GameEngine
     // =========================================================================
 
     /**
-     * Resolve a target_id from AI output to a valid alive player ID.
+     * Resolve a target_id (player number) from AI output to a valid alive player UUID.
+     * Falls back to a random alive player if the number is invalid.
      */
-    protected function resolveTargetId(mixed $targetId, Game $game, ?int $excludePlayerId = null): ?int
+    protected function resolveTargetId(mixed $playerNumber, Game $game, ?string $excludePlayerId = null): ?string
     {
-        $targetId = (int) $targetId;
+        $targetId = $this->resolvePlayerNumberToId($playerNumber, $game);
 
-        // Verify the target is a valid alive player in this game
-        $query = $game->alivePlayers()->where('id', $targetId);
+        if ($targetId) {
+            // Verify the target is a valid alive player in this game
+            $query = $game->alivePlayers()->where('id', $targetId);
 
-        if ($excludePlayerId) {
-            $query->where('id', '!=', $excludePlayerId);
-        }
+            if ($excludePlayerId) {
+                $query->where('id', '!=', $excludePlayerId);
+            }
 
-        if ($query->exists()) {
-            return $targetId;
+            if ($query->exists()) {
+                return $targetId;
+            }
         }
 
         // Fall back to a random alive player (excluding self if needed)

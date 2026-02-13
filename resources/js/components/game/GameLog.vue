@@ -3,12 +3,12 @@ import GameLogEntry from './GameLogEntry.vue';
 import { ref, watch, nextTick } from 'vue';
 
 interface GameEventData {
-    id: number;
+    id: string;
     round: number;
     phase: string;
     type: string;
-    actor_player_id: number | null;
-    target_player_id: number | null;
+    actor_player_id: string | null;
+    target_player_id: string | null;
     message: string | null;
     thinking: string | null;
     public_reasoning: string | null;
@@ -18,7 +18,7 @@ interface GameEventData {
 }
 
 interface PlayerMap {
-    [id: number]: { name: string; provider: string };
+    [id: string]: { name: string; provider: string };
 }
 
 const props = defineProps<{

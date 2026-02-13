@@ -67,9 +67,11 @@ class GameContext
 
     protected function buildPlayerList(Game $game, Player $player): string
     {
-        $lines = ["## Players"];
+        $lines = ['## Players'];
+        $lines[] = '(Use the number in brackets to reference a player.)';
 
         foreach ($game->players as $p) {
+            $playerNumber = $p->order + 1;
             $status = $p->is_alive ? 'ALIVE' : 'DEAD';
             $roleInfo = '';
 
@@ -79,7 +81,7 @@ class GameContext
                 $roleInfo = " (you - {$p->role->value})";
             }
 
-            $lines[] = "- [{$p->id}] {$p->name} - {$status}{$roleInfo}";
+            $lines[] = "- [{$playerNumber}] {$p->name} - {$status}{$roleInfo}";
         }
 
         return implode("\n", $lines);
@@ -97,8 +99,12 @@ class GameContext
                 ->get();
 
             if ($fellowWolves->isNotEmpty()) {
-                $names = $fellowWolves->pluck('name')->implode(', ');
-                $knowledge[] = "## Secret Knowledge\nYour fellow werewolf(s): {$names}. Coordinate to eliminate villagers without being discovered.";
+                $wolfList = $fellowWolves->map(function (Player $w) {
+                    $num = $w->order + 1;
+
+                    return "[{$num}] {$w->name}";
+                })->implode(', ');
+                $knowledge[] = "## Secret Knowledge\nYour fellow werewolf(s): {$wolfList}. Coordinate to eliminate villagers without being discovered.";
             }
         }
 
@@ -110,7 +116,7 @@ class GameContext
                 ->get();
 
             if ($investigations->isNotEmpty()) {
-                $results = ["## Your Investigation Results"];
+                $results = ['## Your Investigation Results'];
                 foreach ($investigations as $event) {
                     $result = $event->data['result'] ?? 'Unknown';
                     $results[] = "- Round {$event->round}: {$result}";
@@ -136,7 +142,7 @@ class GameContext
             return '';
         }
 
-        $lines = ["## Game History"];
+        $lines = ['## Game History'];
         $currentRound = 0;
 
         foreach ($events as $event) {
@@ -173,7 +179,7 @@ class GameContext
             'vote_tie' => $event->data['message'] ?? null,
             'no_elimination' => $event->data['message'] ?? null,
             'seer_investigate' => $event->actor_player_id === $player->id
-                ? "You investigated and learned: ".($event->data['result'] ?? 'nothing')
+                ? 'You investigated and learned: '.($event->data['result'] ?? 'nothing')
                 : null,
             'game_end' => $event->data['message'] ?? null,
             default => null,

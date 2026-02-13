@@ -1,6 +1,7 @@
 declare namespace App.Data {
 export type GameData = {
-id: number;
+id: string;
+userId: string;
 status: string;
 phase: string;
 round: number;
@@ -11,12 +12,12 @@ events: Array<App.Data.GameEventData>;
 created_at: string;
 };
 export type GameEventData = {
-id: number;
+id: string;
 round: number;
 phase: string;
 type: string;
-actor_player_id: number | null;
-target_player_id: number | null;
+actor_player_id: string | null;
+target_player_id: string | null;
 message: string | null;
 thinking: string | null;
 public_reasoning: string | null;
@@ -26,7 +27,7 @@ audio_url: string | null;
 data: { [key: string]: any } | null;
 };
 export type PlayerData = {
-id: number;
+id: string;
 name: string;
 provider: string;
 model: string;
