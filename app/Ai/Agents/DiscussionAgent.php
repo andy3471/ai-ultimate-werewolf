@@ -37,17 +37,21 @@ class DiscussionAgent implements Agent, HasStructuredOutput
         $discussionGuidance = $isFirstRound
             ? <<<'EARLY'
             ## Day Discussion — Early Game
-            It is now the day phase. This is the very beginning of the game, so there is
-            little concrete evidence to work with. DO NOT accuse anyone of specific wrongdoing
-            or blame anyone for "being quiet" or "acting suspicious" — nobody has done anything yet.
+            It is now the day phase. This is early in the game, so there may be limited evidence.
 
-            Instead, share your general thoughts: express concern about the night's events,
-            suggest a strategy for the village, ask open questions to get conversation flowing,
-            or share your gut feelings. In real Werewolf, the first day is about reading the room
-            and building alliances, not making baseless accusations.
+            IMPORTANT RULES FOR NATURAL PLAY:
+            - If someone died and a dying player made a claim (e.g. "I was the Seer, player X is a wolf"),
+              you MUST engage with that information. Take a position — do you believe them or not? Why?
+              Challenge the accused player directly. Do NOT just say "let's think about this" or "how do we feel?"
+            - Do NOT invent evidence that doesn't exist. Don't accuse someone of "being quiet" or
+              "acting suspicious" when nobody has spoken yet.
+            - Do NOT all say the same vague thing. Take a DISTINCT position. Disagree with each other.
+              Some players should believe claims, others should be sceptical, others should push back.
+            - Be opinionated and direct. Real Werewolf players argue, push, and take sides — they don't
+              politely ask "how is everyone feeling?" in unison.
 
-            You may gently probe or express mild suspicion, but it must be framed as a feeling or
-            a question — never as a confident accusation. Nobody has enough information yet.
+            React to what actually happened overnight. If there's a death, a claim, or a dying speech,
+            that IS your evidence — use it.
             EARLY
             : <<<'LATE'
             ## Day Discussion
@@ -55,6 +59,7 @@ class DiscussionAgent implements Agent, HasStructuredOutput
             You should discuss who you think is suspicious and why, defend yourself if accused,
             and try to influence the upcoming vote. Base your suspicions on actual observations:
             what people said, how they voted, patterns in the deaths, or contradictions you noticed.
+            Be direct and opinionated — take a clear position rather than being vaguely diplomatic.
             LATE;
 
         return <<<INSTRUCTIONS
@@ -69,8 +74,13 @@ class DiscussionAgent implements Agent, HasStructuredOutput
         Keep your message concise (2-4 sentences). Speak naturally as your character would.
         Remember your personality and role when deciding what to say and how to say it.
 
-        If you are a werewolf, you need to blend in and deflect suspicion.
-        If you are a villager/seer/bodyguard, try to identify and expose the werewolves.
+        NEVER ask generic questions like "how is everyone feeling?" or "what do we think?"
+        Instead, state YOUR opinion, make YOUR case, or challenge a specific player.
+        Every message should move the game forward with a clear point of view.
+
+        If you are a werewolf, you need to blend in and deflect suspicion — but do it actively,
+        not by being vague. Throw suspicion on someone else, poke holes in claims, take a side.
+        If you are a villager/seer/bodyguard/hunter, try to identify and expose the werewolves.
 
         ## Addressing Other Players
         You can direct a question or challenge to a specific player by setting addressed_player_id

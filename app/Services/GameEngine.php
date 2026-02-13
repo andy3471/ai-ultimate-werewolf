@@ -433,8 +433,8 @@ class GameEngine
 
             $isFirstRound = $game->round <= 1;
             $openingPrompt = $isFirstRound
-                ? 'Share your opening thoughts with the group. React to last night\'s events, share your feelings, suggest a strategy, or ask a question. Do not make specific accusations yet — there is no evidence to base them on. You may address a question to a specific player by setting addressed_player_id to their player number.'
-                : 'Share your opening thoughts for this round. Reflect on what happened in previous rounds — who acted suspiciously, how people voted, and any patterns you noticed. You may address a question to a specific player by setting addressed_player_id to their player number.';
+                ? 'React to what happened last night. If someone died and made a claim, engage with it — take a clear position. Challenge someone or defend someone. Be direct and opinionated, not vague. You may address a specific player by setting addressed_player_id to their player number.'
+                : 'Share your thoughts for this round. Reflect on what happened — who acted suspiciously, how people voted, and any patterns you noticed. Be direct. You may address a specific player by setting addressed_player_id to their player number.';
 
             $result = DiscussionAgent::make(
                 player: $player,
