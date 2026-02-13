@@ -68,7 +68,7 @@ class GameContext
     protected function buildPlayerList(Game $game, Player $player): string
     {
         $lines = ['## Players'];
-        $lines[] = '(Use the number in brackets to reference a player.)';
+        $lines[] = '(Use the number in brackets to reference a player. Dead players\' roles are publicly revealed and confirmed.)';
 
         foreach ($game->players as $p) {
             $playerNumber = $p->order + 1;
@@ -76,7 +76,7 @@ class GameContext
             $roleInfo = '';
 
             if (! $p->is_alive) {
-                $roleInfo = " (was {$p->role->value})";
+                $roleInfo = " (Confirmed role: {$p->role->value})";
             } elseif ($p->id === $player->id) {
                 $roleInfo = " (you - {$p->role->value})";
             }

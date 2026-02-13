@@ -90,7 +90,7 @@ class VoteResolver
                 'type' => 'elimination',
                 'target_player_id' => $eliminated->id,
                 'data' => [
-                    'message' => "{$eliminated->name} has been eliminated by the village. They were a {$eliminated->role->value}.",
+                    'message' => "{$eliminated->name} has been eliminated by the village. Their role is confirmed: {$eliminated->role->value}.",
                     'role_revealed' => $eliminated->role->value,
                     'votes_received' => $maxVotes,
                 ],

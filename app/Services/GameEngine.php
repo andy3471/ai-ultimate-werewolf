@@ -403,13 +403,14 @@ class GameEngine
      *    (players who have spoken less get higher weight). Players may pass.
      * 3. Stops early if all remaining players pass consecutively.
      *
-     * Total budget: playerCount * 3 statements.
+     * Total budget: playerCount * 2 statements (max 3 per player).
      */
     protected function processDayDiscussion(Game $game): void
     {
         $alivePlayers = $game->alivePlayers()->get();
         $playerCount = $alivePlayers->count();
-        $totalBudget = $playerCount * 3;
+        $totalBudget = $playerCount * 2;
+        $maxSpeechesPerPlayer = 3;
 
         // Track how many times each player has spoken (plain array — Collection doesn't support $col[$key]++)
         $speechCounts = $alivePlayers->pluck('id')->mapWithKeys(fn ($id) => [$id => 0])->all();
@@ -422,24 +423,30 @@ class GameEngine
         $consecutivePasses = 0;
 
         // --- Round 1: Opening statements (everyone speaks once, shuffled) ---
+        // Freeze context per player BEFORE the loop so opening speakers react
+        // only to night events, not each other's messages.
         $shuffled = $alivePlayers->shuffle();
+        $frozenContexts = [];
+        foreach ($shuffled as $player) {
+            $frozenContexts[$player->id] = $this->gameContext->buildForPlayer($game, $player);
+        }
+
+        $isFirstRound = $game->round <= 1;
+        $openingPrompt = $isFirstRound
+            ? 'React to what happened last night. If someone died and made a claim, engage with it — take a clear position. Challenge someone or defend someone. Be direct and opinionated, not vague. You may address a specific player by setting addressed_player_id to their player number.'
+            : 'Share your thoughts for this round. Reflect on what happened — who acted suspiciously, how people voted, and any patterns you noticed. Be direct. You may address a specific player by setting addressed_player_id to their player number.';
+
+        $pendingOpeningEvents = [];
 
         foreach ($shuffled as $player) {
             if ($statementsMade >= $totalBudget) {
                 break;
             }
 
-            $context = $this->gameContext->buildForPlayer($game, $player);
-
-            $isFirstRound = $game->round <= 1;
-            $openingPrompt = $isFirstRound
-                ? 'React to what happened last night. If someone died and made a claim, engage with it — take a clear position. Challenge someone or defend someone. Be direct and opinionated, not vague. You may address a specific player by setting addressed_player_id to their player number.'
-                : 'Share your thoughts for this round. Reflect on what happened — who acted suspiciously, how people voted, and any patterns you noticed. Be direct. You may address a specific player by setting addressed_player_id to their player number.';
-
             $result = DiscussionAgent::make(
                 player: $player,
                 game: $game,
-                context: $context,
+                context: $frozenContexts[$player->id],
             )->prompt(
                 $openingPrompt,
                 provider: $player->provider,
@@ -450,15 +457,20 @@ class GameEngine
             $message = $result['message'] ?? (string) $result;
             $addressedId = $this->resolveAddressedPlayerId($result['addressed_player_id'] ?? 0, $game, $player->id);
 
-            $event = $this->recordDiscussionEvent($game, $player, $message, $result, $addressedId);
-            broadcast(new PlayerActed($game->id, $event->toData()));
+            $pendingOpeningEvents[] = compact('player', 'message', 'result', 'addressedId');
 
             $speechCounts[$player->id]++;
             $statementsMade++;
+        }
 
-            // If they addressed someone, queue that player for a response
-            if ($addressedId) {
-                $responseQueue->push(['player_id' => $addressedId, 'from_name' => $player->name]);
+        // Save and broadcast all opening statements now so the open-floor
+        // phase (and future context builds) can see them.
+        foreach ($pendingOpeningEvents as $pending) {
+            $event = $this->recordDiscussionEvent($game, $pending['player'], $pending['message'], $pending['result'], $pending['addressedId']);
+            broadcast(new PlayerActed($game->id, $event->toData()));
+
+            if ($pending['addressedId']) {
+                $responseQueue->push(['player_id' => $pending['addressedId'], 'from_name' => $pending['player']->name]);
             }
 
             $this->waitForAudio();
@@ -490,7 +502,14 @@ class GameEngine
             // Weighted random: players who spoke less get higher weight
             if (! $nextPlayer) {
                 $maxSpeeches = max(1, max($speechCounts));
-                $weights = array_map(fn (int $count) => $maxSpeeches - $count + 1, $speechCounts);
+                $weights = array_map(fn (int $count) => max(0, $maxSpeeches - $count + 1), $speechCounts);
+
+                // Exclude players who have hit the per-player speech cap
+                foreach ($speechCounts as $pid => $count) {
+                    if ($count >= $maxSpeechesPerPlayer) {
+                        $weights[$pid] = 0;
+                    }
+                }
 
                 // Exclude the last speaker from random pick to avoid repeats
                 if ($lastSpeakerId && isset($weights[$lastSpeakerId])) {
@@ -502,6 +521,14 @@ class GameEngine
 
             if (! $nextPlayer) {
                 break;
+            }
+
+            // Skip players who have hit the per-player speech cap
+            if ($speechCounts[$nextPlayer->id] >= $maxSpeechesPerPlayer) {
+                $lastSpeakerId = $nextPlayer->id;
+                $lastResponseWasQueued = (bool) $addressedByName;
+
+                continue;
             }
 
             $context = $this->gameContext->buildForPlayer($game, $nextPlayer);
@@ -908,7 +935,7 @@ class GameEngine
                 'type' => 'elimination',
                 'target_player_id' => $accusedId,
                 'data' => [
-                    'message' => "{$accused->name} has been eliminated by the village. They were a {$accused->role->value}.",
+                    'message' => "{$accused->name} has been eliminated by the village. Their role is confirmed: {$accused->role->value}.",
                     'role_revealed' => $accused->role->value,
                     'votes_yes' => $yesVotes,
                     'votes_no' => $noVotes,

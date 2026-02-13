@@ -71,6 +71,10 @@ class DiscussionAgent implements Agent, HasStructuredOutput
 
         {$discussionGuidance}
 
+        IMPORTANT: When a player dies, their role is publicly revealed and confirmed by the game.
+        Roles shown as "Confirmed role" in the player list are absolute facts — do NOT question
+        or doubt them. A confirmed Villager was definitely a Villager, not secretly a Werewolf.
+
         Keep your message concise (2-4 sentences). Speak naturally as your character would.
         Remember your personality and role when deciding what to say and how to say it.
 

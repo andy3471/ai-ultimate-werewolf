@@ -67,7 +67,7 @@ class NightResolver
                         'type' => 'death',
                         'target_player_id' => $killed->id,
                         'data' => [
-                            'message' => "{$killed->name} was killed by the werewolves during the night.",
+                            'message' => "{$killed->name} was killed by the werewolves during the night. Their role is revealed: they were the {$killed->role->value}.",
                             'role_revealed' => $killed->role->value,
                         ],
                         'is_public' => true,
