@@ -71,8 +71,11 @@ class VoiceService
     }
 
     /**
-     * Assign a unique voice to each player in the game.
-     * Voices are stored as "provider:voice_id" (e.g. "openai:nova").
+     * Assign a consistent voice to each player in the game.
+     * The voice is derived from the player's name so the same name
+     * always gets the same voice across different games.
+     * When two players hash to the same voice, the second one gets
+     * the next available voice to avoid duplicates within a game.
      */
     public function assignVoices(Game $game): void
     {
@@ -87,9 +90,27 @@ class VoiceService
             : self::OPENAI_VOICES;
 
         $players = $game->players()->orderBy('order')->get();
+        $usedVoices = [];
 
-        foreach ($players as $index => $player) {
-            $voiceId = $voices[$index % count($voices)];
+        foreach ($players as $player) {
+            // Deterministic: hash the player name to pick a voice index
+            $hash = crc32($player->name);
+            $preferredIndex = abs($hash) % count($voices);
+
+            // Find the preferred voice, or the next unused one if it's taken
+            $voiceId = null;
+            for ($i = 0; $i < count($voices); $i++) {
+                $candidateIndex = ($preferredIndex + $i) % count($voices);
+                if (! in_array($voices[$candidateIndex], $usedVoices, true)) {
+                    $voiceId = $voices[$candidateIndex];
+                    break;
+                }
+            }
+
+            // Fallback: if all voices are taken (more players than voices), reuse preferred
+            $voiceId ??= $voices[$preferredIndex];
+
+            $usedVoices[] = $voiceId;
             $player->update(['voice' => "{$provider}:{$voiceId}"]);
         }
     }
@@ -265,15 +286,15 @@ class VoiceService
 
         $agent = new AnonymousAgent(
             instructions: <<<'PROMPT'
-You are the narrator of a Werewolf social deduction game. Generate a single dramatic, atmospheric narration line (1-3 sentences max) for the given phase transition.
+You are the narrator of a Werewolf game. Your job is to clearly announce what is happening, then add a brief atmospheric touch.
 
 Rules:
-- Be creative, atmospheric, and concise
-- Use vivid imagery: mention the moon, shadows, firelight, whispers, etc.
-- Reference the specific events described (names of who died, who was saved, who won, etc.)
-- Vary your style — don't always start with the same words
-- Match the mood: night phases are eerie and tense, day phases are urgent and suspicious, dawn is revelatory, game over is conclusive
-- Do NOT reveal hidden roles unless the context says to (e.g. don't say "the werewolf" unless they were already exposed)
+- ALWAYS start by clearly stating the phase: "Night falls.", "Dawn breaks.", "The village gathers for discussion.", "It's time to vote.", "The game is over."
+- ALWAYS name specific players when given (who died, who was eliminated, who won)
+- State the facts FIRST, then add ONE short atmospheric sentence if you like
+- Keep it to 2-3 sentences total
+- Do NOT reveal hidden roles unless the context explicitly says the role was revealed
+- Do NOT be overly poetic — clarity comes first
 PROMPT,
             messages: [],
             tools: [],
@@ -300,69 +321,95 @@ PROMPT,
             ->get()
             ->reverse();
 
-        $parts = ["Round {$round}. {$aliveCount} players remain alive."];
+        $parts = [];
 
         switch ($phase) {
             case 'night_werewolf':
                 if ($round === 1) {
                     $playerNames = $game->players()->pluck('name')->implode(', ');
-                    $parts[] = "The first night falls on the village. The players are: {$playerNames}. The werewolves awaken to learn who their pack members are.";
+                    $parts[] = "Announce: It is Night 1. The players in this game are: {$playerNames}.";
+                    $parts[] = "The werewolves open their eyes for the first time to see who their fellow wolves are.";
                 } else {
-                    $parts[] = 'Night falls on the village. The werewolves open their eyes and must choose their next victim.';
-                    // Mention what happened during the day
+                    $parts[] = "Announce: Night {$round} begins. {$aliveCount} players remain.";
+                    // What happened during the day
                     $dayEvent = $recentEvents->firstWhere('type', 'elimination');
                     if ($dayEvent) {
-                        $parts[] = "Earlier today, {$dayEvent->data['message']}";
+                        $parts[] = "Earlier today: {$dayEvent->data['message']}";
                     }
                     $noElim = $recentEvents->firstWhere('type', 'no_elimination');
                     if ($noElim) {
-                        $parts[] = "The village could not agree — {$noElim->data['message']}";
+                        $parts[] = "Earlier today: {$noElim->data['message']}";
                     }
+                    $parts[] = 'The werewolves must now choose their next victim.';
                 }
                 break;
 
             case 'dawn':
-                $parts[] = 'The sun rises over the village.';
-                // Check for deaths/saves from the night
+                $parts[] = "Announce: Dawn breaks on Day {$round}.";
                 $deathEvent = $recentEvents->firstWhere('type', 'death');
                 $saveEvent = $recentEvents->firstWhere('type', 'bodyguard_save');
                 $noDeathEvent = $recentEvents->firstWhere('type', 'no_death');
 
                 if ($deathEvent) {
                     $targetName = $deathEvent->target?->name ?? 'someone';
-                    $parts[] = "{$targetName} was found dead, taken by the werewolves in the night.";
+                    $role = $deathEvent->data['role_revealed'] ?? null;
+                    $parts[] = "{$targetName} was killed by the werewolves during the night.";
+                    if ($role) {
+                        $parts[] = "Their role is revealed: they were the {$role}.";
+                    }
+                    $parts[] = "{$aliveCount} players remain.";
                 } elseif ($saveEvent) {
-                    $parts[] = 'Miraculously, no one was killed — the bodyguard protected the right person.';
+                    $parts[] = 'No one was killed last night — the bodyguard successfully protected the werewolves\' target!';
                 } elseif ($noDeathEvent) {
-                    $parts[] = 'The village awakens unharmed. No one was killed in the night.';
+                    $parts[] = 'No one was killed during the night.';
                 }
 
                 $hunterEvent = $recentEvents->firstWhere('type', 'hunter_shot');
                 if ($hunterEvent) {
-                    $parts[] = $hunterEvent->data['message'] ?? '';
+                    $shooterName = $hunterEvent->actor?->name ?? 'The Hunter';
+                    $shotTargetName = $hunterEvent->target?->name ?? 'someone';
+                    $parts[] = "{$shooterName} was the Hunter — with their dying breath, they shot and killed {$shotTargetName}!";
                 }
                 break;
 
             case 'day_discussion':
-                $parts[] = 'The villagers gather to discuss who among them might be a werewolf.';
+                $parts[] = "Announce: Day {$round} discussion begins. {$aliveCount} players remain.";
                 if ($round === 1) {
-                    $parts[] = 'Suspicion and fear fill the air as accusations begin to fly.';
+                    $parts[] = 'The village gathers for the first time. Everyone must introduce themselves and share their suspicions.';
                 } else {
-                    $parts[] = 'Tensions are running high. Someone must answer for last night.';
+                    $deathEvent = $recentEvents->firstWhere('type', 'death');
+                    if ($deathEvent) {
+                        $targetName = $deathEvent->target?->name ?? 'someone';
+                        $parts[] = "After the loss of {$targetName}, the village must figure out who the werewolves are.";
+                    } else {
+                        $parts[] = 'The village must discuss and try to identify the werewolves among them.';
+                    }
                 }
                 break;
 
             case 'day_voting':
-                $parts[] = 'The time for talk is over. The village must decide whether to put someone on trial.';
+                $parts[] = "Announce: Discussion is over. It's time to vote.";
+                $parts[] = "Each player will now nominate someone for elimination, then the village will hold a trial.";
                 break;
 
             case 'game_over':
+                $parts[] = 'Announce: The game is over!';
                 $gameEnd = $recentEvents->firstWhere('type', 'game_end');
                 if ($gameEnd) {
-                    $parts[] = "The game has ended. {$gameEnd->data['message']}";
-                } else {
-                    $winner = $game->winner?->value ?? 'unknown';
-                    $parts[] = "The game has ended. The {$winner} team is victorious.";
+                    $parts[] = $gameEnd->data['message'];
+                }
+                $winner = $game->winner?->value ?? 'unknown';
+                if ($winner === 'village') {
+                    $parts[] = 'The village has won — all werewolves have been eliminated!';
+                } elseif ($winner === 'werewolf') {
+                    $parts[] = 'The werewolves have won — they outnumber the villagers!';
+                } elseif ($winner === 'neutral') {
+                    $parts[] = 'The Tanner wins — they tricked the village into eliminating them!';
+                }
+                // List surviving players
+                $survivors = $game->alivePlayers()->pluck('name')->implode(', ');
+                if ($survivors) {
+                    $parts[] = "Survivors: {$survivors}.";
                 }
                 break;
         }

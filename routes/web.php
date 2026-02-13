@@ -13,6 +13,11 @@ Route::get('dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+// Rules page
+Route::get('rules', function () {
+    return Inertia::render('Rules');
+})->name('rules');
+
 // Game routes
 Route::get('games', [GameController::class, 'index'])->name('games.index');
 Route::get('games/create', [GameController::class, 'create'])->name('games.create');

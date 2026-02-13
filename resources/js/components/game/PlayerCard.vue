@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import RoleTooltip from './RoleTooltip.vue';
 
 const props = defineProps<{
     player: {
@@ -70,10 +71,12 @@ const isAlive = computed(() => props.player.is_alive && !props.isEliminated);
             </div>
             <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-semibold text-neutral-200">{{ player.name }}</div>
-                <div v-if="roleDisplay" class="flex items-center gap-1">
-                    <span class="text-xs">{{ roleDisplay.icon }}</span>
-                    <span :class="['text-xs font-medium', roleDisplay.color]">{{ roleDisplay.label }}</span>
-                </div>
+                <RoleTooltip v-if="roleDisplay" :role="roleDisplay.label">
+                    <div class="flex items-center gap-1">
+                        <span class="text-xs">{{ roleDisplay.icon }}</span>
+                        <span :class="['text-xs font-medium', roleDisplay.color]">{{ roleDisplay.label }}</span>
+                    </div>
+                </RoleTooltip>
                 <div v-else class="text-xs text-neutral-500">Role hidden</div>
             </div>
         </div>

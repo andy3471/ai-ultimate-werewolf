@@ -339,7 +339,9 @@ class GameEngine
         }
 
         $game->phase->transitionTo(Dawn::class);
-        $this->broadcastPhaseChange($game);
+        // Don't narrate dawn yet — we need to resolve night actions first
+        // so the narrator knows who died. Narration happens in processDawn().
+        $this->broadcastPhaseChange($game, narrate: false);
     }
 
     // =========================================================================
@@ -350,7 +352,8 @@ class GameEngine
     {
         $result = $this->nightResolver->resolve($game);
 
-        // Broadcast death/save events
+        // Broadcast death/save events with a brief pause so the log
+        // doesn't scroll past them before the user can read them
         foreach ($result['events'] as $event) {
             if ($event->type === 'death') {
                 broadcast(new PlayerEliminated(
@@ -362,7 +365,12 @@ class GameEngine
             } else {
                 broadcast(new PlayerActed($game->id, $event->toData()));
             }
+            sleep(2);
         }
+
+        // NOW narrate dawn — the death/save events exist so the narrator
+        // knows who died or was saved
+        $this->generateAndBroadcastNarration($game);
 
         // Dying speech + Hunter revenge for the killed player
         if ($result['killed']) {
@@ -404,7 +412,8 @@ class GameEngine
         // Track how many times each player has spoken (plain array — Collection doesn't support $col[$key]++)
         $speechCounts = $alivePlayers->pluck('id')->mapWithKeys(fn ($id) => [$id => 0])->all();
 
-        // Response queue: players addressed by someone who should get next turn
+        // Response queue: [['player_id' => int, 'from_name' => string], ...]
+        // Players addressed by someone who should get next turn
         $responseQueue = collect();
 
         $statementsMade = 0;
@@ -442,23 +451,32 @@ class GameEngine
 
             // If they addressed someone, queue that player for a response
             if ($addressedId) {
-                $responseQueue->push($addressedId);
+                $responseQueue->push(['player_id' => $addressedId, 'from_name' => $player->name]);
             }
 
             $this->waitForAudio();
         }
 
         // --- Open floor: directed Q&A + weighted random ---
-        while ($statementsMade < $totalBudget && $consecutivePasses < $playerCount) {
-            // Pick next speaker: prioritise response queue, then weighted random
-            $nextPlayer = null;
+        $lastSpeakerId = null;           // prevent same player twice in a row
+        $lastResponseWasQueued = false;   // force a random turn between queued responses
 
-            // Drain response queue (skip dead/already-queued players)
-            while ($responseQueue->isNotEmpty() && ! $nextPlayer) {
-                $candidateId = $responseQueue->shift();
-                $candidate = $alivePlayers->firstWhere('id', $candidateId);
-                if ($candidate) {
-                    $nextPlayer = $candidate;
+        while ($statementsMade < $totalBudget && $consecutivePasses < $playerCount) {
+            // Pick next speaker: alternate between response queue and weighted random
+            // to prevent two players ping-ponging indefinitely
+            $nextPlayer = null;
+            $addressedByName = null;
+
+            // Only pull from response queue if the last turn was NOT also a queued response
+            if (! $lastResponseWasQueued) {
+                while ($responseQueue->isNotEmpty() && ! $nextPlayer) {
+                    $entry = $responseQueue->shift();
+                    $candidate = $alivePlayers->firstWhere('id', $entry['player_id']);
+                    // Skip if this player just spoke (would cause back-and-forth)
+                    if ($candidate && $candidate->id !== $lastSpeakerId) {
+                        $nextPlayer = $candidate;
+                        $addressedByName = $entry['from_name'];
+                    }
                 }
             }
 
@@ -466,6 +484,11 @@ class GameEngine
             if (! $nextPlayer) {
                 $maxSpeeches = max(1, max($speechCounts));
                 $weights = array_map(fn (int $count) => $maxSpeeches - $count + 1, $speechCounts);
+
+                // Exclude the last speaker from random pick to avoid repeats
+                if ($lastSpeakerId && isset($weights[$lastSpeakerId])) {
+                    $weights[$lastSpeakerId] = 0;
+                }
 
                 $nextPlayer = $this->weightedRandomPick($alivePlayers, $weights);
             }
@@ -476,9 +499,10 @@ class GameEngine
 
             $context = $this->gameContext->buildForPlayer($game, $nextPlayer);
 
-            // Tell the player if they were addressed
-            $wasAddressed = $responseQueue->isEmpty(); // they were popped from queue
-            $prompt = 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.';
+            // Build a prompt that tells the player if they were directly addressed
+            $prompt = $addressedByName
+                ? "{$addressedByName} just addressed you directly — respond to their point or question. You may also raise new points or address someone else (set addressed_player_id)."
+                : 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.';
 
             $result = DiscussionAgent::make(
                 player: $nextPlayer,
@@ -494,6 +518,8 @@ class GameEngine
 
             if (! $wantsToSpeak) {
                 $consecutivePasses++;
+                $lastSpeakerId = $nextPlayer->id;
+                $lastResponseWasQueued = (bool) $addressedByName;
 
                 continue;
             }
@@ -504,14 +530,25 @@ class GameEngine
             $message = $result['message'] ?? (string) $result;
             $addressedId = $this->resolveAddressedPlayerId($result['addressed_player_id'] ?? 0, $game, $nextPlayer->id);
 
+            // Prevent ping-pong: don't queue the person who just addressed us
+            if ($addressedId && $addressedByName) {
+                // Find who addressed us — don't let them be re-queued
+                $addresserPlayer = $alivePlayers->first(fn ($p) => $p->name === $addressedByName);
+                if ($addresserPlayer && $addressedId === $addresserPlayer->id) {
+                    $addressedId = null; // break the loop — don't re-queue the asker
+                }
+            }
+
             $event = $this->recordDiscussionEvent($game, $nextPlayer, $message, $result, $addressedId);
             broadcast(new PlayerActed($game->id, $event->toData()));
 
             $speechCounts[$nextPlayer->id]++;
             $statementsMade++;
+            $lastSpeakerId = $nextPlayer->id;
+            $lastResponseWasQueued = (bool) $addressedByName;
 
             if ($addressedId) {
-                $responseQueue->push($addressedId);
+                $responseQueue->push(['player_id' => $addressedId, 'from_name' => $nextPlayer->name]);
             }
 
             $this->waitForAudio();
@@ -789,6 +826,8 @@ class GameEngine
                 $noVotes++;
             }
 
+            $reasoning = $voteResult['public_reasoning'] ?? '';
+
             $event = $game->events()->create([
                 'round' => $game->round,
                 'phase' => $game->phase->getValue(),
@@ -797,17 +836,26 @@ class GameEngine
                 'target_player_id' => $votedYes ? $accusedId : null,
                 'data' => [
                     'thinking' => $voteResult['thinking'] ?? '',
-                    'public_reasoning' => $voteResult['public_reasoning'] ?? '',
+                    'public_reasoning' => $reasoning,
                     'vote' => $votedYes ? 'yes' : 'no',
                 ],
                 'is_public' => true,
             ]);
 
+            // Generate audio for the vote reasoning
+            if (! empty($reasoning)) {
+                $this->generateAndAttachAudio($event, $voter, $reasoning);
+            }
+
             broadcast(new PlayerActed($game->id, $event->toData()));
+
+            if (! empty($reasoning)) {
+                $this->waitForAudio();
+            }
         }
 
         // Record trial result
-        $game->events()->create([
+        $voteTallyEvent = $game->events()->create([
             'round' => $game->round,
             'phase' => $game->phase->getValue(),
             'type' => 'vote_tally',
@@ -819,6 +867,9 @@ class GameEngine
             ],
             'is_public' => true,
         ]);
+
+        broadcast(new PlayerActed($game->id, $voteTallyEvent->toData()));
+        sleep(3); // Pause so user can see the result before the outcome
 
         // Majority required to eliminate
         if ($yesVotes > $noVotes) {
@@ -845,6 +896,8 @@ class GameEngine
                 $accused->role->value,
             ));
 
+            sleep(3); // Pause so the user can see the elimination before dying speech
+
             // Dying speech + Hunter revenge for the eliminated player
             $this->giveDyingSpeech($game, $accused);
             $this->handleHunterRevenge($game, $accused);
@@ -854,7 +907,7 @@ class GameEngine
                 return;
             }
         } else {
-            $game->events()->create([
+            $noElimEvent = $game->events()->create([
                 'round' => $game->round,
                 'phase' => $game->phase->getValue(),
                 'type' => 'no_elimination',
@@ -862,6 +915,9 @@ class GameEngine
                 'data' => ['message' => "{$accused->name} has been spared by the village ({$yesVotes} yes, {$noVotes} no)."],
                 'is_public' => true,
             ]);
+
+            broadcast(new PlayerActed($game->id, $noElimEvent->toData()));
+            sleep(3);
         }
 
         $game->phase->transitionTo(Dusk::class);
@@ -1187,34 +1243,37 @@ class GameEngine
         return $fallbackQuery->inRandomOrder()->first()?->id;
     }
 
-    protected function broadcastPhaseChange(Game $game): void
+    protected function broadcastPhaseChange(Game $game, bool $narrate = true): void
     {
         $game->refresh();
         $phase = $game->phase;
 
-        // Generate AI narration for key phases
-        $narration = $this->voiceService->narrate($game, $phase);
-
         $narrationText = null;
         $narrationAudioUrl = null;
 
-        if ($narration) {
-            $narrationText = $narration['text'];
-            $narrationAudioUrl = $narration['url'];
+        // Generate AI narration for key phases (can be deferred for phases
+        // like dawn where we need to resolve events first)
+        if ($narrate) {
+            $narration = $this->voiceService->narrate($game, $phase);
 
-            // Record narration as a game event (visible in log)
-            $game->events()->create([
-                'round' => $game->round,
-                'phase' => $phase->getValue(),
-                'type' => 'narration',
-                'data' => [
-                    'message' => $narrationText,
-                ],
-                'audio_url' => $narrationAudioUrl,
-                'is_public' => true,
-            ]);
+            if ($narration) {
+                $narrationText = $narration['text'];
+                $narrationAudioUrl = $narration['url'];
 
-            $this->lastAudioDuration = $narration['duration'];
+                // Record narration as a game event (visible in log)
+                $game->events()->create([
+                    'round' => $game->round,
+                    'phase' => $phase->getValue(),
+                    'type' => 'narration',
+                    'data' => [
+                        'message' => $narrationText,
+                    ],
+                    'audio_url' => $narrationAudioUrl,
+                    'is_public' => true,
+                ]);
+
+                $this->lastAudioDuration = $narration['duration'];
+            }
         }
 
         broadcast(new GamePhaseChanged(
@@ -1227,8 +1286,48 @@ class GameEngine
         ));
 
         // Wait for narrator audio to finish before proceeding
-        if ($narration) {
+        if ($narrationText) {
             $this->waitForAudio();
         }
+    }
+
+    /**
+     * Generate narration for the current phase and broadcast it separately.
+     * Used when narration must be deferred (e.g. dawn — after night resolution).
+     */
+    protected function generateAndBroadcastNarration(Game $game): void
+    {
+        $game->refresh();
+        $phase = $game->phase;
+
+        $narration = $this->voiceService->narrate($game, $phase);
+
+        if (! $narration) {
+            return;
+        }
+
+        $game->events()->create([
+            'round' => $game->round,
+            'phase' => $phase->getValue(),
+            'type' => 'narration',
+            'data' => [
+                'message' => $narration['text'],
+            ],
+            'audio_url' => $narration['url'],
+            'is_public' => true,
+        ]);
+
+        // Broadcast an updated phase change with the narration attached
+        broadcast(new GamePhaseChanged(
+            $game->id,
+            $phase->getValue(),
+            $game->round,
+            $phase->description(),
+            narration: $narration['text'],
+            narration_audio_url: $narration['url'],
+        ));
+
+        $this->lastAudioDuration = $narration['duration'];
+        $this->waitForAudio();
     }
 }

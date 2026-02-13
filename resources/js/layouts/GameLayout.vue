@@ -11,6 +11,9 @@ import { index } from '@/actions/App/Http/Controllers/GameController';
                     <span class="text-2xl">🐺</span>
                     <span>AI Werewolf</span>
                 </Link>
+                <Link href="/rules" class="text-sm text-neutral-400 transition hover:text-neutral-200">
+                    📖 Rules
+                </Link>
             </div>
         </nav>
 

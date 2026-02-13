@@ -3,6 +3,7 @@ import GameLayout from '@/layouts/GameLayout.vue';
 import GameLog from '@/components/game/GameLog.vue';
 import PhaseIndicator from '@/components/game/PhaseIndicator.vue';
 import PlayerCard from '@/components/game/PlayerCard.vue';
+import RoleTooltip from '@/components/game/RoleTooltip.vue';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useAudioQueue } from '@/composables/useAudioQueue';
 import { Head, router } from '@inertiajs/vue3';
@@ -122,16 +123,46 @@ const playerMap = computed(() => {
     return map;
 });
 
-const isPending = computed(() => props.game.status === 'pending' && !currentPhase.value);
-const isRunning = computed(() => props.game.status === 'running' || !!currentPhase.value);
+const isPending = computed(() => props.game.status === 'pending' && !currentPhase.value && !starting.value);
+const isRunning = computed(() => props.game.status === 'running' || !!currentPhase.value || starting.value);
 const isFinished = computed(() => !!winner.value);
 
 function startGame() {
     starting.value = true;
     router.post(start.url(props.game.id), {}, {
         preserveScroll: true,
-        onFinish: () => { starting.value = false; },
+        onFinish: () => {
+            // The queued job may start before or after the Inertia redirect.
+            // Poll the API briefly to detect when the game has started,
+            // then reload the page via Inertia to get fresh props.
+            pollUntilStarted();
+        },
     });
+}
+
+function pollUntilStarted(attempts = 0) {
+    if (attempts > 15 || currentPhase.value) {
+        // Either the WebSocket already delivered the phase change, or we've waited long enough
+        if (!currentPhase.value && attempts > 15) {
+            starting.value = false;
+        }
+        return;
+    }
+
+    setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/games/${props.game.id}/state`);
+            const data = await res.json();
+            if (data.status !== 'pending') {
+                // Game has started — reload via Inertia to get fresh props
+                router.reload({ preserveScroll: true });
+                return;
+            }
+        } catch {
+            // ignore fetch errors
+        }
+        pollUntilStarted(attempts + 1);
+    }, 1000);
 }
 
 function phaseLabel(p: string): string {
@@ -163,13 +194,13 @@ function displayPlayer(player: PlayerData) {
     return player;
 }
 
-const roleIcons: Record<string, string> = {
-    Werewolf: '🐺',
-    Villager: '🧑‍🌾',
-    Seer: '🔮',
-    Bodyguard: '🛡️',
-    Hunter: '🏹',
-    Tanner: '🪚',
+const roleInfo: Record<string, { icon: string; team: string; teamColor: string; bg: string }> = {
+    Werewolf: { icon: '🐺', team: 'Werewolf', teamColor: 'text-red-400', bg: 'bg-red-950/40 ring-1 ring-red-900/40' },
+    Villager: { icon: '🧑‍🌾', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+    Seer: { icon: '🔮', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+    Bodyguard: { icon: '🛡️', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+    Hunter: { icon: '🏹', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+    Tanner: { icon: '🪚', team: 'Neutral', teamColor: 'text-yellow-500', bg: 'bg-yellow-950/30 ring-1 ring-yellow-900/30' },
 };
 </script>
 
@@ -215,14 +246,16 @@ const roleIcons: Record<string, string> = {
             <div v-if="game.role_distribution" class="mt-4 rounded-lg border border-neutral-800/50 bg-neutral-900/50 px-4 py-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Roles in play:</span>
-                    <span
+                    <RoleTooltip
                         v-for="(count, role) in game.role_distribution"
                         :key="role"
-                        class="inline-flex items-center gap-1 rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-medium text-neutral-300"
+                        :role="String(role)"
                     >
-                        <span>{{ roleIcons[role] || '❓' }}</span>
-                        <span>{{ count }}x {{ role }}</span>
-                    </span>
+                        <span :class="['inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-neutral-200', roleInfo[role]?.bg || 'bg-neutral-800']">
+                            <span>{{ roleInfo[role]?.icon || '❓' }}</span>
+                            <span>{{ count }}x {{ role }}</span>
+                        </span>
+                    </RoleTooltip>
                 </div>
             </div>
 

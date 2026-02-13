@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GameLayout from '@/layouts/GameLayout.vue';
+import RoleTooltip from '@/components/game/RoleTooltip.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { store } from '@/actions/App/Http/Controllers/GameController';
@@ -134,15 +135,16 @@ const roleBreakdown = computed(() => {
     const specialCount = wolves + seer + bodyguard + hunter + tanner;
     const villagers = Math.max(0, n - specialCount);
 
-    const parts: string[] = [];
-    parts.push(`${wolves} Werewolf${wolves > 1 ? 'es' : ''}`);
-    parts.push(`1 Seer`);
-    parts.push(`1 Bodyguard`);
-    parts.push(`1 Hunter`);
-    if (tanner) parts.push(`1 Tanner`);
-    parts.push(`${villagers} Villager${villagers !== 1 ? 's' : ''}`);
+    const roles: { name: string; icon: string; count: number; team: string; teamColor: string; bg: string }[] = [
+        { name: 'Werewolf', icon: '🐺', count: wolves, team: 'Werewolf', teamColor: 'text-red-400', bg: 'bg-red-950/40 ring-1 ring-red-900/40' },
+        { name: 'Seer', icon: '🔮', count: seer, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+        { name: 'Bodyguard', icon: '🛡️', count: bodyguard, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+        { name: 'Hunter', icon: '🏹', count: hunter, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+    ];
+    if (tanner) roles.push({ name: 'Tanner', icon: '🪚', count: tanner, team: 'Neutral', teamColor: 'text-yellow-500', bg: 'bg-yellow-950/30 ring-1 ring-yellow-900/30' });
+    roles.push({ name: 'Villager', icon: '🧑‍🌾', count: villagers, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' });
 
-    return parts.join(', ');
+    return roles;
 });
 
 const providerColors: Record<string, string> = {
@@ -278,23 +280,35 @@ const providerAccent: Record<string, string> = {
                 </button>
             </div>
 
-            <div class="mt-8 flex items-center justify-between border-t border-neutral-800 pt-6">
-                <div class="text-sm text-neutral-400">
-                    {{ players.length }} players ({{ roleBreakdown }})
+            <div class="mt-8 border-t border-neutral-800 pt-6">
+                <div class="mb-4 flex flex-wrap items-center gap-2">
+                    <span class="text-sm text-neutral-400">{{ players.length }} players —</span>
+                    <RoleTooltip
+                        v-for="role in roleBreakdown"
+                        :key="role.name"
+                        :role="role.name"
+                    >
+                        <span :class="['inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-neutral-200', role.bg]">
+                            <span>{{ role.icon }}</span>
+                            <span>{{ role.count }}x {{ role.name }}</span>
+                        </span>
+                    </RoleTooltip>
                 </div>
-                <button
-                    @click="submit"
-                    :disabled="!canSubmit || submitting"
-                    :class="[
-                        'inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition',
-                        canSubmit && !submitting
-                            ? 'bg-indigo-600 hover:bg-indigo-500'
-                            : 'cursor-not-allowed bg-neutral-700 text-neutral-400',
-                    ]"
-                >
-                    <span v-if="submitting">Creating...</span>
-                    <span v-else>Create Game</span>
-                </button>
+                <div class="flex justify-end">
+                    <button
+                        @click="submit"
+                        :disabled="!canSubmit || submitting"
+                        :class="[
+                            'inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition',
+                            canSubmit && !submitting
+                                ? 'bg-indigo-600 hover:bg-indigo-500'
+                                : 'cursor-not-allowed bg-neutral-700 text-neutral-400',
+                        ]"
+                    >
+                        <span v-if="submitting">Creating...</span>
+                        <span v-else>Create Game</span>
+                    </button>
+                </div>
             </div>
         </div>
     </GameLayout>

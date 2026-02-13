@@ -62,7 +62,11 @@ function formatDate(dateStr: string) {
             <div class="mb-8 flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold text-neutral-100">AI Werewolf</h1>
-                    <p class="mt-1 text-neutral-400">Watch AI models play Werewolf against each other</p>
+                    <p class="mt-1 text-neutral-400">
+                        Watch AI models play Werewolf against each other
+                        <span class="mx-1 text-neutral-600">·</span>
+                        <Link href="/rules" class="text-indigo-400 hover:text-indigo-300 transition">Learn the rules</Link>
+                    </p>
                 </div>
                 <Link
                     :href="create.url()"
