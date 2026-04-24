@@ -256,9 +256,9 @@ class GameEngine
         return $created->data;
     }
 
-    public function processHunterRevengeShot(Game $game, Player $deadPlayer): void
+    public function processEliminationFollowUp(Game $game, Player $deadPlayer): void
     {
-        $this->eliminationService->processHunterRevengeShot($game, $deadPlayer, $this);
+        $this->eliminationService->processEliminationFollowUp($game, $deadPlayer, $this);
     }
 
     public function addDelaySeconds(int $seconds): void

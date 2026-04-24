@@ -194,7 +194,7 @@ class DayVotingStepRunner
                 ->where('type', 'hunter_shot')
                 ->exists()
         ) {
-            $this->eliminationService->processHunterRevengeShot($game, $eliminatedPlayer, $engine);
+            $this->eliminationService->processEliminationFollowUp($game, $eliminatedPlayer, $engine);
 
             return false;
         }

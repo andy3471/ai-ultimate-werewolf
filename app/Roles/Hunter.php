@@ -2,8 +2,16 @@
 
 namespace App\Roles;
 
+use App\Ai\Agents\NightActionAgent;
+use App\Ai\Context\GameContext;
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Events\PlayerEliminated;
+use App\Models\Game;
+use App\Models\Player;
+use App\Services\GameEngine;
+use App\Services\NarrationAudioService;
+use Illuminate\Support\Facades\Log;
 
 class Hunter extends Role
 {
@@ -44,5 +52,63 @@ class Hunter extends Role
     public function rulesPrompt(): string
     {
         return 'Hunter (Village team): If eliminated (day or night), immediately shoots one player, eliminating them as well. Wins when all werewolves are eliminated.';
+    }
+
+    public function onElimination(Game $game, Player $eliminated, GameEngine $engine): void
+    {
+        try {
+            $gameContext = app(GameContext::class)->buildForPlayer($game, $eliminated);
+            $gameContext .= "\n\n## HUNTER'S REVENGE\nYou have been eliminated, but as the Hunter, you get to take one player down with you! Choose wisely — target who you believe is a werewolf.";
+
+            $result = NightActionAgent::make(
+                player: $eliminated,
+                game: $game,
+                context: $gameContext,
+                actionPrompt: 'You are the Hunter. Choose one alive player to shoot with your dying action. Pick who you believe is a werewolf.',
+            )->prompt(
+                'Choose a player to take down with you.',
+                provider: $eliminated->provider,
+                model: $eliminated->model,
+            );
+
+            $targetId = $engine->resolveTargetId($result['target_id'], $game, excludePlayerId: $eliminated->id);
+            $target = $targetId ? Player::find($targetId) : null;
+
+            if ($target && $target->is_alive) {
+                $target->update(['is_alive' => false]);
+
+                $hunterMessage = "{$eliminated->name} was the Hunter and shoots {$target->name} with their dying breath! {$target->name} was a {$target->role->value}.";
+                $event = $game->events()->create([
+                    'round' => $game->round,
+                    'phase' => $game->phase->getValue(),
+                    'type' => 'hunter_shot',
+                    'actor_player_id' => $eliminated->id,
+                    'target_player_id' => $target->id,
+                    'data' => [
+                        'thinking' => $result['thinking'] ?? '',
+                        'public_reasoning' => $result['public_reasoning'] ?? '',
+                        'message' => $hunterMessage,
+                        'role_revealed' => $target->role->value,
+                    ],
+                    'is_public' => true,
+                ]);
+
+                $narration = app(NarrationAudioService::class);
+                $narration->generateAndAttachAudio($event, $eliminated, $hunterMessage);
+                broadcast(new PlayerEliminated(
+                    $game->id,
+                    $event->toData(),
+                    $target->id,
+                    $target->role->value,
+                ));
+
+                $engine->addDelaySeconds($narration->consumeWaitDelaySeconds());
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to process Hunter revenge', [
+                'player_id' => $eliminated->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

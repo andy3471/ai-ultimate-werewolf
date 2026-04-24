@@ -59,7 +59,7 @@ class DawnStepRunner
             }
 
             if ($game->phase_step === $stepAfterBroadcasts + 2) {
-                $engine->processHunterRevengeShot($game, $killedPlayer);
+                $engine->processEliminationFollowUp($game, $killedPlayer);
 
                 return false;
             }

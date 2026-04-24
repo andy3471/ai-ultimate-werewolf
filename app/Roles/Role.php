@@ -9,6 +9,7 @@ use App\Game\RoleExecution\RoleExecutionContext;
 use App\Game\RoleExecution\ValidationResult;
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\GameEngine;
 
 abstract class Role
 {
@@ -103,4 +104,10 @@ abstract class Role
     {
         return ValidationResult::valid();
     }
+
+    /**
+     * Hook after a player is eliminated (day or night): role-specific reactions (e.g. Hunter revenge shot).
+     * The eliminated player's row may still reflect their role; downstream code may update `is_alive`.
+     */
+    public function onElimination(Game $game, Player $eliminated, GameEngine $engine): void {}
 }
