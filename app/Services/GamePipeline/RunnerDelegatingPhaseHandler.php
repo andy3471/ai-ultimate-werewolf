@@ -6,15 +6,12 @@ use App\Contracts\Game\PhaseHandler;
 use App\Models\Game;
 use App\Services\GameEngine;
 
-class EngineDelegatingPhaseHandler implements PhaseHandler
+class RunnerDelegatingPhaseHandler implements PhaseHandler
 {
-    /**
-     * @param  class-string  $phaseClass
-     */
     public function __construct(
         protected string $phaseClass,
+        protected object $runner,
         protected GameEngine $engine,
-        protected string $engineMethod,
     ) {}
 
     public function supports(Game $game): bool
@@ -24,6 +21,6 @@ class EngineDelegatingPhaseHandler implements PhaseHandler
 
     public function run(Game $game): bool
     {
-        return $this->engine->{$this->engineMethod}($game);
+        return $this->runner->run($game, $this->engine);
     }
 }

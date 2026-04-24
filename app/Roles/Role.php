@@ -60,6 +60,30 @@ abstract class Role
         return RoleActionResult::continue();
     }
 
+    public function skipNightPhase(Game $game): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return array<int, Player>
+     */
+    public function nightActors(Game $game): array
+    {
+        return $game->alivePlayers()
+            ->where('role', $this->id()->value)
+            ->get()
+            ->values()
+            ->all();
+    }
+
+    public function resolveNightPhase(Game $game): void {}
+
+    public function requiresAllActorsBeforeResolve(): bool
+    {
+        return false;
+    }
+
     public function onDawn(RoleExecutionContext $context): ?RoleActionResult
     {
         return null;

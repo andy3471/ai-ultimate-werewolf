@@ -6,6 +6,7 @@ use App\Enums\GameRole;
 use App\Enums\GameTeam;
 use App\Game\RoleExecution\RoleActionResult;
 use App\Game\RoleExecution\RoleExecutionContext;
+use App\Models\Game;
 use App\Services\RoleActions\NightRoleActionService;
 use App\States\GamePhase\NightBodyguard;
 
@@ -60,5 +61,10 @@ class Bodyguard extends Role
         );
 
         return RoleActionResult::continue();
+    }
+
+    public function skipNightPhase(Game $game): bool
+    {
+        return $game->round === 1;
     }
 }

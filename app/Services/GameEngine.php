@@ -9,17 +9,7 @@ use App\Models\Game;
 use App\Models\GameEvent;
 use App\Models\Player;
 use App\Services\GamePipeline\PhasePipelineBuilder;
-use App\Services\GameSteps\DawnStepRunner;
-use App\Services\GameSteps\DayDiscussionStepRunner;
-use App\Services\GameSteps\DayVotingStepRunner;
-use App\Services\RoleActions\NightRoleActionService;
-use App\States\GamePhase\Dawn;
-use App\States\GamePhase\DayVoting;
-use App\States\GamePhase\Dusk;
 use App\States\GamePhase\GameOver;
-use App\States\GamePhase\NightBodyguard;
-use App\States\GamePhase\NightSeer;
-use App\States\GamePhase\NightWerewolf;
 use App\States\GameStatus\Finished;
 use Illuminate\Support\Facades\Log;
 
@@ -38,11 +28,7 @@ class GameEngine
         protected NarrationAudioService $narrationAudioService,
         protected EliminationService $eliminationService,
         protected GameSetupService $gameSetupService,
-        protected DawnStepRunner $dawnStepRunner,
-        protected DayDiscussionStepRunner $dayDiscussionStepRunner,
-        protected DayVotingStepRunner $dayVotingStepRunner,
         protected PhasePipelineBuilder $phasePipelineBuilder,
-        protected NightRoleActionService $nightRoleActionService,
         protected WinConditionResolver $winConditionResolver,
     ) {}
 
@@ -105,95 +91,7 @@ class GameEngine
         return self::MAX_ROUNDS;
     }
 
-    public function runNightWerewolfStep(Game $game): bool
-    {
-        if ($game->round === 1) {
-            $this->transitionToPhase($game, NightSeer::class);
-
-            return true;
-        }
-
-        $werewolves = $game->alivePlayers()
-            ->where('role', GameRole::Werewolf->value)
-            ->get()
-            ->values();
-
-        if ($werewolves->isEmpty()) {
-            $this->transitionToPhase($game, NightSeer::class);
-
-            return true;
-        }
-
-        if ($game->phase_step < $werewolves->count()) {
-            $werewolf = $werewolves->get($game->phase_step);
-            $this->executeRoleNightAction($game, GameRole::Werewolf, $werewolf);
-
-            return false;
-        }
-
-        $this->nightRoleActionService->resolveWerewolfTarget($game);
-        $this->transitionToPhase($game, NightSeer::class);
-
-        return true;
-    }
-
-    public function runNightSeerStep(Game $game): bool
-    {
-        if ($game->phase_step > 0) {
-            return true;
-        }
-
-        $this->executeRoleNightAction($game, GameRole::Seer);
-        $this->transitionToPhase($game, NightBodyguard::class);
-
-        return true;
-    }
-
-    public function runNightBodyguardStep(Game $game): bool
-    {
-        if ($game->round === 1) {
-            $this->transitionToPhase($game, Dawn::class, narrate: false);
-
-            return true;
-        }
-
-        if ($game->phase_step > 0) {
-            return true;
-        }
-
-        $this->executeRoleNightAction($game, GameRole::Bodyguard);
-        $this->transitionToPhase($game, Dawn::class, narrate: false);
-
-        return true;
-    }
-
-    public function runDawnStep(Game $game): bool
-    {
-        return $this->dawnStepRunner->run($game, $this);
-    }
-
-    public function runDayDiscussionStep(Game $game): bool
-    {
-        return $this->dayDiscussionStepRunner->run($game, $this);
-    }
-
-    public function runDayVotingStep(Game $game): bool
-    {
-        return $this->dayVotingStepRunner->run($game, $this);
-    }
-
-    public function runDuskStep(Game $game): bool
-    {
-        if ($game->phase_step > 0) {
-            return true;
-        }
-
-        $this->processDusk($game);
-
-        return true;
-    }
-
-    protected function executeRoleNightAction(Game $game, GameRole $roleId, ?Player $actor = null): void
+    public function executeRoleNightAction(Game $game, GameRole $roleId, ?Player $actor = null): void
     {
         $role = $this->roleRegistry->get($roleId);
         $context = new RoleExecutionContext(
@@ -204,22 +102,6 @@ class GameEngine
 
         $role->validateAction($context);
         $role->onNightAction($context);
-    }
-
-    protected function processDayDiscussion(Game $game): void
-    {
-        $safetyCounter = 0;
-
-        while (! ($game->phase instanceof DayVoting) && $safetyCounter < 200) {
-            $transitioned = $this->dayDiscussionStepRunner->run($game, $this);
-            if ($transitioned) {
-                break;
-            }
-
-            $this->advancePhaseStep($game);
-            $game->refresh();
-            $safetyCounter++;
-        }
     }
 
     public function recordDiscussionEvent(Game $game, Player $player, string $message, mixed $result, ?string $addressedId): GameEvent
@@ -281,32 +163,6 @@ class GameEngine
         }
 
         return null;
-    }
-
-    protected function processDayVoting(Game $game): void
-    {
-        $safetyCounter = 0;
-
-        while (! ($game->phase instanceof Dusk) && $safetyCounter < 300) {
-            $transitioned = $this->dayVotingStepRunner->run($game, $this);
-            if ($transitioned) {
-                break;
-            }
-
-            $this->advancePhaseStep($game);
-            $game->refresh();
-            $safetyCounter++;
-        }
-    }
-
-    protected function processDusk(Game $game): void
-    {
-        if ($this->checkWinCondition($game)) {
-            return;
-        }
-
-        $game->update(['round' => $game->round + 1]);
-        $this->transitionToPhase($game, NightWerewolf::class);
     }
 
     public function giveDyingSpeech(Game $game, Player $player): void

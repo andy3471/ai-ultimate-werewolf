@@ -6,6 +6,7 @@ use App\Enums\GameRole;
 use App\Enums\GameTeam;
 use App\Game\RoleExecution\RoleActionResult;
 use App\Game\RoleExecution\RoleExecutionContext;
+use App\Models\Game;
 use App\Services\RoleActions\NightRoleActionService;
 use App\States\GamePhase\NightWerewolf;
 
@@ -71,5 +72,20 @@ class Werewolf extends Role
         );
 
         return RoleActionResult::continue();
+    }
+
+    public function skipNightPhase(Game $game): bool
+    {
+        return $game->round === 1;
+    }
+
+    public function resolveNightPhase(Game $game): void
+    {
+        app(NightRoleActionService::class)->resolveWerewolfTarget($game);
+    }
+
+    public function requiresAllActorsBeforeResolve(): bool
+    {
+        return true;
     }
 }
