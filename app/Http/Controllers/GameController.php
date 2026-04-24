@@ -105,6 +105,12 @@ class GameController extends Controller
                 'name' => 'OpenAI',
                 'key' => config('ai.providers.openai.key'),
                 'models' => [
+                    ['id' => 'gpt-5.4', 'name' => 'GPT-5.4'],
+                    ['id' => 'gpt-5.4-mini', 'name' => 'GPT-5.4 Mini'],
+                    ['id' => 'gpt-5.4-nano', 'name' => 'GPT-5.4 Nano'],
+                    ['id' => 'gpt-5.2', 'name' => 'GPT-5.2'],
+                    ['id' => 'gpt-5-mini', 'name' => 'GPT-5 Mini'],
+                    ['id' => 'gpt-5-nano', 'name' => 'GPT-5 Nano'],
                     ['id' => 'gpt-4o', 'name' => 'GPT-4o'],
                     ['id' => 'gpt-4o-mini', 'name' => 'GPT-4o Mini'],
                     ['id' => 'gpt-4.1', 'name' => 'GPT-4.1'],
@@ -117,7 +123,9 @@ class GameController extends Controller
                 'name' => 'Anthropic',
                 'key' => config('ai.providers.anthropic.key'),
                 'models' => [
-                    ['id' => 'claude-sonnet-4-20250514', 'name' => 'Claude Sonnet 4'],
+                    ['id' => 'claude-opus-4-7', 'name' => 'Claude Opus 4.7'],
+                    ['id' => 'claude-sonnet-4-6', 'name' => 'Claude Sonnet 4.6'],
+                    ['id' => 'claude-opus-4-6', 'name' => 'Claude Opus 4.6'],
                     ['id' => 'claude-haiku-4-5-20251001', 'name' => 'Claude Haiku 4.5'],
                 ],
             ],
@@ -126,8 +134,10 @@ class GameController extends Controller
                 'name' => 'Google Gemini',
                 'key' => config('ai.providers.gemini.key'),
                 'models' => [
+                    ['id' => 'gemini-2.5-pro', 'name' => 'Gemini 2.5 Pro'],
+                    ['id' => 'gemini-2.5-flash', 'name' => 'Gemini 2.5 Flash'],
+                    ['id' => 'gemini-2.5-flash-lite', 'name' => 'Gemini 2.5 Flash-Lite'],
                     ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash'],
-                    ['id' => 'gemini-2.5-pro-preview-06-05', 'name' => 'Gemini 2.5 Pro'],
                 ],
             ],
         ];

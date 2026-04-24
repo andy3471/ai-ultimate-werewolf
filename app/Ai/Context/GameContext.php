@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\GameEvent;
 use App\Models\Player;
 use App\Services\RoleRegistry;
+use App\States\GamePhase\DayDiscussion;
 
 class GameContext
 {
@@ -21,6 +22,7 @@ class GameContext
     {
         $sections = [];
         $sections[] = $this->buildGameOverview($game, $player);
+        $sections[] = $this->buildSameDayAfterTrialReminder($game);
         $sections[] = $this->buildRulesReference($game);
         $sections[] = $this->buildRolesInPlay($game);
         $sections[] = $this->buildRoleReference($game);
@@ -50,6 +52,32 @@ class GameContext
         CONTEXT;
     }
 
+    /**
+     * After a spared trial, discussion restarts the same calendar day with phase_step reset — models
+     * otherwise misread "opening" prompts as a fresh morning. Ground them in the trial, not a new night.
+     */
+    protected function buildSameDayAfterTrialReminder(Game $game): string
+    {
+        if (! $game->phase instanceof DayDiscussion) {
+            return '';
+        }
+
+        $trialSpared = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', 'day_voting')
+            ->where('type', 'no_elimination')
+            ->exists();
+
+        if (! $trialSpared) {
+            return '';
+        }
+
+        return <<<'TXT'
+        ## Same-day discussion (trial spared — no new night)
+        A **trial vote already spared** someone this round, and the village returned to **discussion the same day**. **No night or dawn has occurred since the earlier morning** in this round. In your public reasoning, **do not** claim "another peaceful night", "last night again", or otherwise imply a new overnight period. Anchor your points in **trial defenses, votes, nominations, and prior discussion** from the log.
+        TXT;
+    }
+
     protected function buildRulesReference(Game $game): string
     {
         return <<<'RULES'
@@ -58,10 +86,11 @@ class GameContext
         - Night order: Werewolves -> Seer -> Bodyguard, then Dawn resolves outcomes.
         - Night 1 exception: Werewolves only identify each other; there is NO werewolf kill on Night 1.
         - Bodyguard rule: The Bodyguard cannot protect the same player on consecutive nights.
-        - Day flow: Discussion -> nominations -> top nominee on trial -> defense speech -> YES/NO vote.
+        - Day flow: Discussion -> nominations -> latest nominee awaits a second -> defense (accused + one responder) -> trial YES/NO vote.
         - Nomination pressure: During nomination windows, players may choose to continue discussion instead of nominating.
         - Consequence of stalling: If the village does not produce a valid nomination/second/vote outcome in time, the day can end with no elimination.
-        - Voting rule: A simple majority of YES votes eliminates the accused; otherwise no elimination occurs.
+        - Failed trial: If the vote spares the accused, discussion continues the **same day** with no new night until dusk ends the day.
+        - Voting rule: Strict majority of all living players must vote YES to eliminate the accused; otherwise no elimination occurs.
         - Public information: Eliminated players are dead and their role is confirmed publicly.
         RULES;
     }

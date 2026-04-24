@@ -7,7 +7,6 @@ use App\Models\Player;
 use App\Services\RoleRegistry;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\MaxTokens;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -15,7 +14,6 @@ use Laravel\Ai\Promptable;
 use Stringable;
 
 #[MaxTokens(1024)]
-#[Temperature(0.9)]
 #[Timeout(120)]
 class DiscussionAgent implements Agent, HasStructuredOutput
 {
@@ -50,8 +48,10 @@ class DiscussionAgent implements Agent, HasStructuredOutput
             - Be opinionated and direct. Real Werewolf players argue, push, and take sides — they don't
               politely ask "how is everyone feeling?" in unison.
 
-            React to what actually happened overnight. If there's a death, a claim, or a dying speech,
-            that IS your evidence — use it.
+            If **Game History** includes dawn outcomes for this round, you may reference them **accurately once**
+            (e.g. no werewolf kill on Night 1). **Never** invent nights or say "another peaceful night" unless the log
+            clearly shows a **second** full night-and-dawn cycle — after a trial spares someone, there is **no new night**;
+            continue from the trial and discussion, not from overnight fiction.
             EARLY
             : <<<'LATE'
             ## Day Discussion

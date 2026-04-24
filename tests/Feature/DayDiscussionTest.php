@@ -239,6 +239,8 @@ test('game context includes explicit past voting record summary', function () {
     expect($context)->toContain('Round 1');
     expect($context)->toContain('trial votes yes/no: 1/1');
     expect($context)->toContain('outcome: no elimination');
+    expect($context)->toContain('## Same-day discussion (trial spared — no new night)');
+    expect($context)->toContain('no new night');
 });
 
 test('seer context does not leak alive players role labels', function () {

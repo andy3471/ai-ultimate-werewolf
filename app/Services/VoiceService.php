@@ -308,7 +308,7 @@ PROMPT,
         $response = $agent->prompt(
             $context,
             provider: 'openai',
-            model: 'gpt-4.1-nano',
+            model: 'gpt-4o-mini',
         );
 
         return trim((string) $response);

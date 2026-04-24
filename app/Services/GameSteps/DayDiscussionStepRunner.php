@@ -40,19 +40,36 @@ class DayDiscussionStepRunner
         $passStreakLimit = min(3, max(2, (int) ceil($playerCount / 3)));
         $maxSpeechesPerPlayer = 3;
 
+        $trialSparedSameDay = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', 'day_voting')
+            ->where('type', 'no_elimination')
+            ->exists();
+
         if ($game->phase_step < $openingOrder->count()) {
             $player = Player::find($openingOrder->get($game->phase_step));
             if ($player && $player->is_alive) {
                 $isFirstRound = $game->round <= 1;
                 $isFirstOpeningSpeaker = $game->phase_step === 0;
-                if ($isFirstRound && $isFirstOpeningSpeaker) {
+
+                if ($isFirstRound && $isFirstOpeningSpeaker && $trialSparedSameDay) {
+                    $prompt = <<<'PROMPT'
+You are the first speaker as **discussion resumes** after a trial **spared** the accused. This is still the **same calendar day** — **no new night** has happened since the morning already shown in the log. Do NOT say "another peaceful night" or reset the conversation as if dawn just happened.
+React to the **trial, defenses, and votes**, and how earlier discussion fits together. You may share what the village should do next.
+Do NOT accuse anyone of being "quiet" or "not talking" about the trial — people need room to respond. Prefer addressed_player_id=0 unless you invite a specific follow-up on the trial.
+Be direct and grounded in what actually appears in the game history.
+PROMPT;
+                } elseif ($isFirstRound && $isFirstOpeningSpeaker) {
                     $prompt = <<<'PROMPT'
 You are the first speaker this day. No one has spoken in discussion yet.
-React to what happened last night (peaceful night, a death, or public claims from dawn). You may share an early plan for how the village should approach the day.
+If this is the first discussion after Night 1, remember: **werewolves do not kill on Night 1** — there is no werewolf victim yet unless the log shows otherwise. React only to **public dawn/history lines** (peaceful morning, death, saves, claims). Do not say "another peaceful night" when only one night has completed.
+You may share an early plan for how the village should approach the day.
 Do NOT accuse anyone of being "quiet", "not talking", or "lurking" — that is impossible to observe fairly before others have spoken. Do not invent social reads from silence.
 You may set addressed_player_id only to ask a neutral opening question (not an accusation). Prefer addressed_player_id=0 unless you are directly inviting someone to share their night read.
 Be direct but grounded in observable facts from the game state so far.
 PROMPT;
+                } elseif ($isFirstRound && $trialSparedSameDay) {
+                    $prompt = 'Discussion continues **the same day** after the trial spared the accused — **no new night** since dawn. React to the trial, earlier opening speakers, and the vote tally. Do not pivot to "last night" or "peaceful night" as if a fresh overnight happened. You may address a specific player via addressed_player_id.';
                 } elseif ($isFirstRound) {
                     $prompt = 'React to what happened last night and to what earlier opening speakers said. You may take a position, but do not accuse anyone of being "quiet" or "not participating" based on lack of discussion — only a few players have spoken so far. You may address a specific player by setting addressed_player_id to their player number.';
                 } else {
@@ -159,9 +176,13 @@ PROMPT;
             return true;
         }
 
+        $sameDayTrialSuffix = $trialSparedSameDay
+            ? ' Same-day reminder: a trial already spared someone this round — there has been no new night since dawn; stay on trial and discussion evidence, not overnight fiction.'
+            : '';
+
         $prompt = $addressedSpeaker
-            ? 'You were directly addressed in the previous message. Respond naturally to that point first, then add anything else useful. You may address a specific player via addressed_player_id, or pass if you genuinely have nothing to add.'
-            : 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.';
+            ? 'You were directly addressed in the previous message. Respond naturally to that point first, then add anything else useful. You may address a specific player via addressed_player_id, or pass if you genuinely have nothing to add.'.$sameDayTrialSuffix
+            : 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.'.$sameDayTrialSuffix;
         $this->dayActionService->createDiscussionMessage($game, $speaker, $prompt, $engine);
 
         return false;
