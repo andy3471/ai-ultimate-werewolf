@@ -149,6 +149,12 @@ class GameEngine
 
     protected function runNightWerewolfStep(Game $game): bool
     {
+        if ($game->round === 1) {
+            $this->transitionToPhase($game, NightSeer::class);
+
+            return true;
+        }
+
         $werewolves = $game->alivePlayers()
             ->where('role', GameRole::Werewolf->value)
             ->get()
@@ -186,6 +192,12 @@ class GameEngine
 
     protected function runNightBodyguardStep(Game $game): bool
     {
+        if ($game->round === 1) {
+            $this->transitionToPhase($game, Dawn::class, narrate: false);
+
+            return true;
+        }
+
         if ($game->phase_step > 0) {
             return true;
         }
