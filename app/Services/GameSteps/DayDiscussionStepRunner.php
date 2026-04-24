@@ -55,6 +55,7 @@ class DayDiscussionStepRunner
             ->where('round', $game->round)
             ->where('phase', $game->phase->getValue())
             ->where('type', 'discussion')
+            ->reorder()
             ->selectRaw('actor_player_id, COUNT(*) as count')
             ->groupBy('actor_player_id')
             ->pluck('count', 'actor_player_id');
