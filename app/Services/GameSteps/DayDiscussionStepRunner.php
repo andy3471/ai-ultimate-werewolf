@@ -2,6 +2,7 @@
 
 namespace App\Services\GameSteps;
 
+use App\Events\PlayerActed;
 use App\Models\Game;
 use App\Models\Player;
 use App\Services\DayActionService;
@@ -28,8 +29,14 @@ class DayDiscussionStepRunner
         $plan = $this->dayActionService->getOrCreateDiscussionPlan($game, $alivePlayers);
         $openingOrder = collect($plan['opening_order'] ?? [])->values();
         $baseBudget = (int) ($plan['total_budget'] ?? ($playerCount * 2));
-        $extensionBudget = max(1, (int) floor($playerCount / 2));
-        $hardBudget = $baseBudget + $extensionBudget;
+        $requestedExtensionBudget = (int) $game->events()
+            ->where('round', $game->round)
+            ->where('type', 'discussion_extension')
+            ->get()
+            ->sum(fn ($event) => (int) ($event->data['extra_budget'] ?? 0));
+        $maxExtensionCap = $playerCount;
+        $effectiveExtensionBudget = min($requestedExtensionBudget, $maxExtensionCap);
+        $hardBudget = $baseBudget + $effectiveExtensionBudget;
         $passStreakLimit = min(3, max(2, (int) ceil($playerCount / 3)));
         $maxSpeechesPerPlayer = 3;
 
@@ -67,6 +74,11 @@ class DayDiscussionStepRunner
             $engine->transitionToPhase($game, DayVoting::class);
 
             return true;
+        }
+
+        $remainingTurns = max(0, $hardBudget - $discussionCount);
+        if ($remainingTurns <= 2) {
+            $this->emitModeratorWarning($game, $remainingTurns);
         }
 
         if ($discussionCount >= $baseBudget) {
@@ -145,5 +157,33 @@ class DayDiscussionStepRunner
         $this->dayActionService->createDiscussionMessage($game, $speaker, $prompt, $engine);
 
         return false;
+    }
+
+    protected function emitModeratorWarning(Game $game, int $remainingTurns): void
+    {
+        $type = $remainingTurns <= 1 ? 'discussion_warning_final_call' : 'discussion_warning_closing';
+        $exists = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', $type)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $message = $remainingTurns <= 1
+            ? 'Moderator: Final call. Nomination window is about to close.'
+            : 'Moderator: Discussion time is running out. Prepare nominations now.';
+
+        $event = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => $type,
+            'data' => ['message' => $message],
+            'is_public' => true,
+        ]);
+
+        broadcast(new PlayerActed($game->id, $event->toData()));
     }
 }

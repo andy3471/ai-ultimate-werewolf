@@ -59,6 +59,8 @@ class GameContext
         - Night 1 exception: Werewolves only identify each other; there is NO werewolf kill on Night 1.
         - Bodyguard rule: The Bodyguard cannot protect the same player on consecutive nights.
         - Day flow: Discussion -> nominations -> top nominee on trial -> defense speech -> YES/NO vote.
+        - Nomination pressure: During nomination windows, players may choose to continue discussion instead of nominating.
+        - Consequence of stalling: If the village does not produce a valid nomination/second/vote outcome in time, the day can end with no elimination.
         - Voting rule: A simple majority of YES votes eliminates the accused; otherwise no elimination occurs.
         - Public information: Eliminated players are dead and their role is confirmed publicly.
         RULES;
@@ -177,7 +179,7 @@ class GameContext
                 $query->where('is_public', true)
                     ->orWhere('actor_player_id', $player->id);
             })
-            ->whereIn('type', ['nomination', 'nomination_result', 'vote', 'vote_tally', 'elimination', 'no_elimination'])
+            ->whereIn('type', ['nomination', 'nomination_result', 'nomination_second', 'vote', 'vote_tally', 'elimination', 'no_elimination'])
             ->orderBy('id')
             ->get();
 
@@ -212,6 +214,11 @@ class GameContext
                 }
             }
 
+            $seconds = $events->where('type', 'nomination_second')->count();
+            if ($seconds > 0) {
+                $lineParts[] = "seconds received: {$seconds}";
+            }
+
             if ($votes->isNotEmpty()) {
                 $yesVotes = $votes->where('data.vote', 'yes')->count();
                 $noVotes = $votes->where('data.vote', 'no')->count();
@@ -243,6 +250,7 @@ class GameContext
             'dying_speech' => $this->formatDyingSpeech($event),
             'nomination' => $this->formatNomination($event),
             'nomination_result' => $event->data['message'] ?? null,
+            'nomination_second' => $event->data['message'] ?? null,
             'defense_speech' => $this->formatDefenseSpeech($event),
             'vote' => $this->formatVote($event),
             'death' => $event->data['message'] ?? null,

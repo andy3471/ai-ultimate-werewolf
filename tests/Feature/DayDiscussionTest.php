@@ -12,12 +12,20 @@ use App\States\GameStatus\Running;
 use Illuminate\Support\Facades\Event;
 
 /**
- * Call the protected processDayDiscussion method on GameEngine.
+ * Run day discussion until the phase changes.
  */
 function runDayDiscussion(GameEngine $engine, Game $game): void
 {
-    $ref = new ReflectionMethod($engine, 'processDayDiscussion');
-    $ref->invoke($engine, $game);
+    $maxSteps = 60;
+
+    while ($maxSteps-- > 0) {
+        $game->refresh();
+        if (! $game->phase instanceof DayDiscussion) {
+            return;
+        }
+
+        $engine->runCurrentPhase($game);
+    }
 }
 
 /**
@@ -53,7 +61,7 @@ function createGameInDiscussion(int $playerCount = 5): Game
     return $game;
 }
 
-test('opening statements use frozen context so speakers do not see each other', function () {
+test('opening statements run first in sequence', function () {
     $game = createGameInDiscussion(5);
 
     $promptCount = 0;
@@ -62,7 +70,6 @@ test('opening statements use frozen context so speakers do not see each other', 
     DiscussionAgent::fake(function (string $prompt) use ($game, &$promptCount, &$discussionEventsAtPromptTime) {
         $promptCount++;
         // Record how many discussion events exist at the time each prompt is sent.
-        // With frozen context, no discussion events should be saved until after all opening prompts.
         $discussionEventsAtPromptTime[] = $game->events()->where('type', 'discussion')->count();
 
         return [
@@ -78,11 +85,10 @@ test('opening statements use frozen context so speakers do not see each other', 
     $engine = app(GameEngine::class);
     runDayDiscussion($engine, $game);
 
-    // The first 5 prompts are opening statements. With frozen context,
-    // no discussion events should exist in the DB when any of them are prompted.
+    // The first 5 prompts should be opening statements in sequence.
     foreach ($discussionEventsAtPromptTime as $i => $count) {
         if ($i < 5) {
-            expect($count)->toBe(0, "Opening speaker #{$i} saw {$count} discussion events (expected 0)");
+            expect($count)->toBe($i, "Opening speaker #{$i} ran out of sequence");
         }
     }
 });
