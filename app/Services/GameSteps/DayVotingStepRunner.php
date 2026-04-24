@@ -29,16 +29,6 @@ class DayVotingStepRunner
             return true;
         }
 
-        $nominationCutoff = $playerCount;
-        if ($game->phase_step < $nominationCutoff) {
-            $player = $alivePlayers->get($game->phase_step);
-            if ($player) {
-                $this->dayActionService->createNomination($game, $player, $engine);
-            }
-
-            return false;
-        }
-
         $nominationResult = $game->events()
             ->where('round', $game->round)
             ->where('phase', $game->phase->getValue())
@@ -46,15 +36,39 @@ class DayVotingStepRunner
             ->latest('id')
             ->first();
 
-        if (! $nominationResult && $game->phase_step === $nominationCutoff) {
-            $result = $this->dayActionService->createNominationResult($game, $alivePlayers);
-            if (! $result) {
+        $nominationCutoff = $playerCount;
+        if (! $nominationResult) {
+            $hasNomination = $game->events()
+                ->where('round', $game->round)
+                ->where('phase', $game->phase->getValue())
+                ->where('type', 'nomination')
+                ->exists();
+
+            if ($hasNomination) {
+                $result = $this->dayActionService->createNominationResult($game, $alivePlayers);
+                if (! $result) {
+                    $engine->transitionToPhase($game, DayDiscussion::class);
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            if ($game->phase_step < $nominationCutoff) {
+                $player = $alivePlayers->get($game->phase_step);
+                if ($player) {
+                    $this->dayActionService->createNomination($game, $player, $engine);
+                }
+
+                return false;
+            }
+
+            if ($game->phase_step >= $nominationCutoff) {
                 $engine->transitionToPhase($game, DayDiscussion::class);
 
                 return true;
             }
-
-            return false;
         }
 
         $accusedId = $nominationResult?->target_player_id;
@@ -73,7 +87,7 @@ class DayVotingStepRunner
             ->latest('id')
             ->first();
 
-        $secondWindowStart = $nominationCutoff + 1;
+        $secondWindowStart = (int) ($nominationResult?->data['nomination_result_step'] ?? $nominationCutoff) + 1;
         $secondWindowEnd = $secondWindowStart + $playerCount;
 
         if (! $secondEvent) {
@@ -219,6 +233,12 @@ class DayVotingStepRunner
         }
 
         if (! $eliminatedPlayer && $engine->checkWinCondition($game)) {
+            return true;
+        }
+
+        if ($eliminatedPlayer) {
+            $engine->transitionToPhase($game, Dusk::class);
+
             return true;
         }
 

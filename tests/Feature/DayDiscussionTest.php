@@ -241,6 +241,25 @@ test('game context includes explicit past voting record summary', function () {
     expect($context)->toContain('outcome: no elimination');
 });
 
+test('seer context does not leak alive players role labels', function () {
+    $game = createGameInDiscussion(5);
+
+    $seer = $game->players()->where('role', GameRole::Seer->value)->first();
+    expect($seer)->not->toBeNull();
+
+    $context = app(\App\Ai\Context\GameContext::class)->buildForPlayer($game->fresh(['players']), $seer);
+
+    $aliveOthers = $game->players()
+        ->where('is_alive', true)
+        ->where('id', '!=', $seer->id)
+        ->get();
+
+    foreach ($aliveOthers as $other) {
+        expect($context)->not->toContain("{$other->name} - ALIVE (Confirmed role:");
+        expect($context)->not->toContain("{$other->name} - ALIVE (you -");
+    }
+});
+
 test('RunGame job implements ShouldBeUnique', function () {
     $game = Game::factory()->create();
     $job = new RunGame($game);

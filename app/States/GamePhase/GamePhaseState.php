@@ -20,6 +20,7 @@ abstract class GamePhaseState extends State
             ->allowTransition(Dawn::class, DayDiscussion::class)
             ->allowTransition(Dawn::class, GameOver::class)
             ->allowTransition(DayDiscussion::class, DayVoting::class)
+            ->allowTransition(DayVoting::class, DayDiscussion::class)
             ->allowTransition(DayVoting::class, Dusk::class)
             ->allowTransition(DayVoting::class, GameOver::class)
             ->allowTransition(Dusk::class, Night::class)

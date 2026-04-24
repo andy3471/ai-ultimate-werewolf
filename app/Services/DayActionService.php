@@ -143,6 +143,7 @@ class DayActionService
             'data' => [
                 'thinking' => $result['thinking'] ?? '',
                 'public_reasoning' => $reasoning,
+                'phase_step' => (int) $game->phase_step,
             ],
             'is_public' => true,
         ]);
@@ -200,6 +201,7 @@ class DayActionService
             'data' => [
                 'message' => "{$accused->name} has been nominated for trial and awaits a second.",
                 'nominator_id' => $latestNomination->actor_player_id,
+                'nomination_result_step' => (int) $game->phase_step,
             ],
             'is_public' => true,
         ]);
@@ -356,13 +358,12 @@ class DayActionService
             game: $game,
             context: $voteContext,
         )->prompt(
-            "Vote on {$accused->name}'s fate. target_id={$accusedNumber} for YES (eliminate), target_id=0 for NO (spare).",
+            "Vote on {$accused->name}'s fate. target_id={$accusedNumber} for YES (eliminate), target_id=0 for NO (spare). Do not include any speech or statement.",
             provider: $voter->provider,
             model: $voter->model,
         );
 
         $votedYes = ((int) ($voteResult['target_id'] ?? 0)) === $accusedNumber;
-        $reasoning = $voteResult['public_reasoning'] ?? '';
         $event = $game->events()->create([
             'round' => $game->round,
             'phase' => $game->phase->getValue(),
@@ -371,21 +372,13 @@ class DayActionService
             'target_player_id' => $votedYes ? $accused->id : null,
             'data' => [
                 'thinking' => $voteResult['thinking'] ?? '',
-                'public_reasoning' => $reasoning,
+                'public_reasoning' => '',
                 'vote' => $votedYes ? 'yes' : 'no',
             ],
             'is_public' => true,
         ]);
 
-        if (! empty($reasoning)) {
-            $engine->generateAndAttachAudio($event, $voter, $reasoning);
-        }
-
         broadcast(new PlayerActed($game->id, $event->toData()));
-
-        if (! empty($reasoning)) {
-            $engine->waitForAudio();
-        }
     }
 
     /**

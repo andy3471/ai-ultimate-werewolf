@@ -40,6 +40,8 @@ class Seer extends Role
         You are the Seer. It is night time and you may investigate one player to learn their true allegiance.
         Choose a player you are suspicious of. You will learn whether they are a Werewolf or a Villager (aligned with the village).
         Use this information wisely during the day — but be careful about revealing yourself, or the werewolves will target you.
+        Important: Do NOT infer role from model/provider/name metadata. Those are not game signals.
+        If evidence is weak (especially on night 1), make an uncertainty-aware pick rather than overconfident certainty.
         PROMPT;
     }
 
@@ -58,6 +60,7 @@ class Seer extends Role
         During the day, you must decide how to use this information. You can share it openly, hint at it subtly,
         or keep it secret to avoid being targeted by the werewolves. Balance information sharing with self-preservation.
         The village uses a nomination → trial → vote system. Help guide nominations toward confirmed werewolves.
+        Never treat a player's model name, provider name, or formatting style as evidence of role alignment.
         INSTRUCTIONS;
     }
 
@@ -95,7 +98,6 @@ class Seer extends Role
         }
 
         $gameContext = app(\App\Ai\Context\GameContext::class)->buildForPlayer($context->game, $seer);
-
         $result = NightActionAgent::make(
             player: $seer,
             game: $context->game,
@@ -107,7 +109,9 @@ class Seer extends Role
             model: $seer->model,
         );
 
-        $targetId = $context->engine->resolveTargetId($result['target_id'], $context->game, excludePlayerId: $seer->id);
+        $requestedTargetId = (int) ($result['target_id'] ?? 0);
+        $targetId = $context->engine->resolveTargetId($requestedTargetId, $context->game, excludePlayerId: $seer->id);
+
         $target = $targetId ? Player::find($targetId) : null;
         $investigationResult = $target
             ? $this->describeNightResult($seer, $target, $context->game)
@@ -123,6 +127,8 @@ class Seer extends Role
                 'thinking' => $result['thinking'] ?? '',
                 'public_reasoning' => $result['public_reasoning'] ?? '',
                 'result' => $investigationResult,
+                'requested_target_id' => $requestedTargetId,
+                'resolved_target_id' => $targetId,
             ],
             'is_public' => false,
         ]);

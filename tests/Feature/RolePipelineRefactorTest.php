@@ -135,3 +135,32 @@ test('seer and bodyguard hooks preserve event contracts', function () {
     expect($bodyguardEvent->data)->toHaveKeys(['thinking', 'public_reasoning']);
     expect($game->phase)->toBeInstanceOf(Dawn::class);
 });
+
+test('seer investigation stores requested and resolved target ids', function () {
+    Event::fake();
+
+    $game = Game::factory()->create([
+        'status' => Running::getMorphClass(),
+        'phase' => Night::getMorphClass(),
+        'round' => 1,
+        'phase_step' => 0,
+    ]);
+
+    $seer = createNightPlayer($game, 'Seer', GameRole::Seer, 0);
+    createNightPlayer($game, 'Villager A', GameRole::Villager, 1);
+    createNightPlayer($game, 'Villager B', GameRole::Villager, 2);
+
+    NightActionAgent::fake([
+        'thinking' => 'test investigate',
+        'target_id' => 2,
+        'public_reasoning' => 'light suspicion',
+    ]);
+
+    app(GameEngine::class)->runStep($game);
+
+    $event = $game->events()->where('type', 'seer_investigate')->latest('id')->first();
+    expect($event)->not->toBeNull();
+    expect($event->target_player_id)->not->toBe($seer->id);
+    expect($event->data)->toHaveKeys(['requested_target_id', 'resolved_target_id']);
+    expect((int) ($event->data['requested_target_id'] ?? 0))->toBeGreaterThan(0);
+});
