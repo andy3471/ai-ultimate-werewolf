@@ -13,14 +13,14 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { index as gamesIndex } from '@/actions/App/Http/Controllers/GameController';
 import { type NavItem } from '@/types';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
-        href: dashboard(),
+        title: 'Games',
+        href: gamesIndex(),
         icon: LayoutGrid,
     },
 ];
@@ -45,7 +45,7 @@ const footerNavItems: NavItem[] = [
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboard()">
+                        <Link :href="gamesIndex()">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>
