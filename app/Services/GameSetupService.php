@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\GameRole;
 use App\Models\Game;
+use App\Roles\Role;
 use App\States\GamePhase\Night;
 use App\States\GameStatus\Running;
 
@@ -44,24 +45,16 @@ class GameSetupService
      */
     protected function distributeRoles(int $playerCount): array
     {
-        $werewolfCount = match (true) {
-            $playerCount <= 6 => 1,
-            $playerCount <= 11 => 2,
-            default => 3,
-        };
-
         $roles = [];
+        $ordered = collect($this->roleRegistry->all())
+            ->sortBy(fn (Role $role) => $role->standardDeckCompositionOrder())
+            ->values();
 
-        for ($i = 0; $i < $werewolfCount; $i++) {
-            $roles[] = GameRole::Werewolf;
-        }
-
-        $roles[] = GameRole::Seer;
-        $roles[] = GameRole::Bodyguard;
-        $roles[] = GameRole::Hunter;
-
-        if ($playerCount >= 7) {
-            $roles[] = GameRole::Tanner;
+        foreach ($ordered as $role) {
+            $copies = $role->standardDeckCopies($playerCount);
+            for ($i = 0; $i < $copies; $i++) {
+                $roles[] = $role->id();
+            }
         }
 
         $villagersNeeded = $playerCount - count($roles);

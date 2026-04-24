@@ -8,6 +8,10 @@ use App\Models\Player;
 
 class NightResolver
 {
+    public function __construct(
+        protected RoleRegistry $roleRegistry,
+    ) {}
+
     /**
      * Resolve all night actions for the given round.
      * Returns an array of results: kills, protections, investigations.
@@ -18,26 +22,26 @@ class NightResolver
     {
         $round = $game->round;
 
-        // Gather night actions for this round
-        $werewolfAction = $game->events()
-            ->where('round', $round)
-            ->where('type', 'werewolf_kill')
-            ->first();
+        $killTargetId = null;
+        $protectTargetId = null;
 
-        $bodyguardAction = $game->events()
-            ->where('round', $round)
-            ->where('type', 'bodyguard_protect')
-            ->first();
+        foreach ($this->roleRegistry->all() as $role) {
+            $contribution = $role->readNightResolutionContribution($game, $round);
+            if (array_key_exists('kill_target', $contribution) && $contribution['kill_target'] !== null) {
+                $killTargetId = $contribution['kill_target'];
+            }
+            if (array_key_exists('protect_target', $contribution) && $contribution['protect_target'] !== null) {
+                $protectTargetId = $contribution['protect_target'];
+            }
+        }
 
         $killed = null;
         $protected = null;
         $events = [];
 
-        // Determine the werewolf target
-        $targetId = $werewolfAction?->target_player_id;
+        $targetId = $killTargetId;
 
-        // Determine if bodyguard protected the target
-        $protectedId = $bodyguardAction?->target_player_id;
+        $protectedId = $protectTargetId;
 
         if ($protectedId) {
             $protected = Player::find($protectedId);

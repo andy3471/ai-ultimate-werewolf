@@ -7,6 +7,7 @@ use App\Services\DayActionService;
 use App\Services\EliminationService;
 use App\Services\GameEngine;
 use App\Services\GameSteps\DayVotingStepRunner;
+use App\Services\RoleRegistry;
 use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\DayVoting;
 use App\States\GamePhase\Dusk;
@@ -39,7 +40,7 @@ test('day voting returns to discussion when no player is nominated', function ()
 
     $eliminationService = Mockery::mock(EliminationService::class);
 
-    $runner = new DayVotingStepRunner($dayActionService, $eliminationService);
+    $runner = new DayVotingStepRunner($dayActionService, $eliminationService, app(RoleRegistry::class));
 
     $engine = Mockery::mock(GameEngine::class);
     $engine->shouldReceive('transitionToPhase')
@@ -171,7 +172,7 @@ test('seconding window opens after first nomination result instead of waiting fo
         'is_public' => true,
     ]);
 
-    $runner = new DayVotingStepRunner(app(DayActionService::class), Mockery::mock(EliminationService::class));
+    $runner = new DayVotingStepRunner(app(DayActionService::class), Mockery::mock(EliminationService::class), app(RoleRegistry::class));
     $engine = Mockery::mock(GameEngine::class);
     $engine->shouldReceive('transitionToPhase')->never();
 
@@ -341,7 +342,7 @@ test('successful trial elimination after hunter follow-up transitions to dusk no
         'is_public' => false,
     ]);
 
-    $runner = new DayVotingStepRunner(app(DayActionService::class), app(EliminationService::class));
+    $runner = new DayVotingStepRunner(app(DayActionService::class), app(EliminationService::class), app(RoleRegistry::class));
     $engine = Mockery::mock(GameEngine::class);
     $engine->shouldReceive('checkWinCondition')->andReturn(false);
     $engine->shouldReceive('transitionToPhase')

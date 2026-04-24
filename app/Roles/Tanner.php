@@ -4,6 +4,8 @@ namespace App\Roles;
 
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Models\Game;
+use App\Models\Player;
 
 class Tanner extends Role
 {
@@ -47,5 +49,31 @@ class Tanner extends Role
     public function rulesPrompt(): string
     {
         return 'Tanner (Neutral team): Wins only if eliminated by village vote during the day. If killed at night or still alive when another team wins, Tanner loses.';
+    }
+
+    public function villageEliminationWinOutcome(Game $game, Player $eliminated): ?array
+    {
+        return [
+            'team' => GameTeam::Neutral,
+            'message' => "{$eliminated->name} was the Tanner and WANTED to be eliminated! The Tanner wins!",
+            'broadcast_message' => "{$eliminated->name} was the Tanner and wins!",
+        ];
+    }
+
+    public function gameOverVoiceWinnerAddendum(GameTeam $winner): ?string
+    {
+        return $winner === GameTeam::Neutral
+            ? 'The Tanner wins — they tricked the village into eliminating them!'
+            : null;
+    }
+
+    public function standardDeckCopies(int $playerCount): int
+    {
+        return $playerCount >= 7 ? 1 : 0;
+    }
+
+    public function standardDeckCompositionOrder(): int
+    {
+        return 50;
     }
 }

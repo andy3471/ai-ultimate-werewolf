@@ -33,6 +33,11 @@ class Werewolf extends Role
         return true;
     }
 
+    public function nightActionPipelineOrder(): ?int
+    {
+        return 10;
+    }
+
     public function nightActionPrompt(): string
     {
         return <<<'PROMPT'
@@ -159,5 +164,31 @@ class Werewolf extends Role
     public function requiresAllActorsBeforeResolve(): bool
     {
         return true;
+    }
+
+    public function readNightResolutionContribution(Game $game, int $round): array
+    {
+        $event = $game->events()
+            ->where('round', $round)
+            ->where('type', 'werewolf_kill')
+            ->first();
+
+        return [
+            'kill_target' => $event?->target_player_id,
+        ];
+    }
+
+    public function standardDeckCopies(int $playerCount): int
+    {
+        return match (true) {
+            $playerCount <= 6 => 1,
+            $playerCount <= 11 => 2,
+            default => 3,
+        };
+    }
+
+    public function standardDeckCompositionOrder(): int
+    {
+        return 10;
     }
 }

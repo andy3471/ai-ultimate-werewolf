@@ -104,8 +104,8 @@ const phases = [
     { icon: '🔮', name: 'Night — Seer', description: 'The Seer wakes up and investigates one player, learning whether they are a werewolf.' },
     { icon: '🛡️', name: 'Night — Bodyguard', description: 'The Bodyguard chooses one player to protect from the werewolves tonight.' },
     { icon: '🌅', name: 'Dawn', description: 'The village wakes up and learns who (if anyone) was killed during the night. The killed player\'s role is revealed.' },
-    { icon: '💬', name: 'Day Discussion', description: 'All surviving players discuss who they think the werewolves are. Players can address each other directly and share information (or lies).' },
-    { icon: '🗳️', name: 'Day Voting', description: 'Players nominate someone for elimination. The accused gives a defense speech. Then the village votes — majority rules.' },
+    { icon: '💬', name: 'Day Discussion', description: 'Survivors discuss in a structured open round (randomized speaking order and a shared message budget). When ready, play moves to nominations and trial.' },
+    { icon: '🗳️', name: 'Day Voting', description: 'Turn-by-turn nominations, a required second, a two-part defense (accused + one responder), then a trial vote. A strict majority of all living players must vote to eliminate.' },
     { icon: '🌆', name: 'Dusk', description: 'The day ends. If someone was eliminated, their role is revealed and they give a dying speech. A new night begins.' },
 ];
 </script>
@@ -128,9 +128,11 @@ const phases = [
                 <h2 class="mb-4 text-xl font-bold text-neutral-100">How It Works</h2>
                 <div class="space-y-3 text-neutral-300">
                     <p>
-                        A village has been infiltrated by werewolves. Each night, the werewolves secretly kill a villager.
-                        Each day, the village debates and votes to eliminate a suspect. The village wins if they eliminate all
-                        the werewolves. The werewolves win if they equal or outnumber the villagers.
+                        A village has been infiltrated by werewolves. From Night 2 onward, the pack secretly chooses a victim
+                        each night (Night 1 is introductions only — no kill). Each day, survivors discuss, then run a formal
+                        nomination and trial process: someone must be seconded before a vote can eliminate them. The village
+                        wins if all werewolves are gone. The werewolves win when they equal or outnumber everyone who is not a
+                        werewolf (villagers and neutrals such as the Tanner all count toward that side of the balance).
                     </p>
                     <p>
                         In this version, all players are AI models. You observe the game as it unfolds — watching their
@@ -179,7 +181,7 @@ const phases = [
             <!-- Roles -->
             <section class="mb-10">
                 <h2 class="mb-4 text-xl font-bold text-neutral-100">Roles</h2>
-                <p class="mb-4 text-sm text-neutral-400">The number of werewolves scales with player count: 1 for 5–6 players, 2 for 7–11, 3 for 12+. The Tanner appears in games with 7+ players.</p>
+                <p class="mb-4 text-sm text-neutral-400">The number of werewolves scales with player count: 1 for up to 6 players, 2 for 7–11, 3 for 12 or more. The Tanner appears in games with 7+ players.</p>
                 <div class="space-y-4">
                     <div
                         v-for="role in roles"
@@ -215,23 +217,63 @@ const phases = [
 
             <!-- Day Voting Details -->
             <section class="mb-10 rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                <h2 class="mb-4 text-xl font-bold text-neutral-100">Day Voting Process</h2>
+                <h2 class="mb-4 text-xl font-bold text-neutral-100">Day Voting &amp; Trial</h2>
+                <p class="mb-4 text-sm text-neutral-400">
+                    Eliminations only happen through this pipeline. Skipping nominations or failing a trial sends the village
+                    back to discussion — with extra discussion time after a failed trial, and the failed nominee blocked from
+                    being nominated again the same day.
+                </p>
                 <div class="space-y-3 text-sm text-neutral-300">
                     <div class="flex items-start gap-3">
                         <span class="mt-0.5 font-bold text-amber-400">1.</span>
-                        <div><strong class="text-neutral-200">Nomination</strong> — Each player names who they think should be eliminated and why.</div>
+                        <div>
+                            <strong class="text-neutral-200">Nomination round</strong> — In fixed turn order, each living
+                            player may nominate one other living player for trial, or pass. Passing is always allowed.
+                        </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="mt-0.5 font-bold text-amber-400">2.</span>
-                        <div><strong class="text-neutral-200">Trial</strong> — The player with the most nominations is put on trial. They give a defense speech.</div>
+                        <div>
+                            <strong class="text-neutral-200">Trial candidate</strong> — If anyone was nominated, the
+                            <strong class="text-neutral-200">latest</strong> valid nomination (among players not blocked that
+                            day) becomes the accused. If every player passed with no nomination, the phase returns to day
+                            discussion without a trial.
+                        </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="mt-0.5 font-bold text-amber-400">3.</span>
-                        <div><strong class="text-neutral-200">Vote</strong> — Every other player votes YES (eliminate) or NO (spare). Simple majority decides.</div>
+                        <div>
+                            <strong class="text-neutral-200">Second required</strong> — A <em>different</em> player must
+                            &quot;second&quot; the nomination or the trial does not happen. The original nominator cannot
+                            second their own call. Each other living player is polled in turn; if the seconding window closes
+                            without a second, play returns to day discussion with no elimination.
+                        </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="mt-0.5 font-bold text-amber-400">4.</span>
-                        <div><strong class="text-neutral-200">Dying Speech</strong> — If eliminated, the player reveals their role and gives final words to the village.</div>
+                        <div>
+                            <strong class="text-neutral-200">Defense</strong> — After a successful second, the accused gives a
+                            defense speech, then one other living player gives a short follow-up before voting begins.
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="mt-0.5 font-bold text-amber-400">5.</span>
+                        <div>
+                            <strong class="text-neutral-200">Trial vote</strong> — Every living player votes YES (eliminate)
+                            or NO (spare). The accused is eliminated only if at least <strong class="text-neutral-200">strictly
+                            more than half</strong> of all living players vote YES (e.g. 4 of 6, or 3 of 5). Otherwise they are
+                            spared.
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="mt-0.5 font-bold text-amber-400">6.</span>
+                        <div>
+                            <strong class="text-neutral-200">Aftermath</strong> — If eliminated: role is revealed, dying
+                            speech, then any same-day follow-ups (e.g. Hunter revenge shot and its dying speech) before dusk
+                            or a sudden win. If <strong class="text-neutral-200">not</strong> eliminated: that player cannot be
+                            nominated again until the next day, the village gets extra discussion budget, and play returns to
+                            day discussion for a new nomination cycle.
+                        </div>
                     </div>
                 </div>
             </section>

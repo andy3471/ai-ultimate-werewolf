@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\GameTeam;
 use App\Models\Game;
 use App\Models\Player;
 use App\States\GamePhase\GamePhaseState;
@@ -12,6 +13,10 @@ use Laravel\Ai\Audio;
 
 class VoiceService
 {
+    public function __construct(
+        protected RoleRegistry $roleRegistry,
+    ) {}
+
     /**
      * OpenAI TTS voices — 6 distinct voices to cycle through.
      */
@@ -404,13 +409,21 @@ PROMPT,
                 if ($gameEnd) {
                     $parts[] = $gameEnd->data['message'];
                 }
-                $winner = $game->winner?->value ?? 'unknown';
-                if ($winner === 'village') {
+                $winner = $game->winner;
+                $winnerValue = $winner?->value ?? 'unknown';
+                if ($winnerValue === GameTeam::Village->value) {
                     $parts[] = 'The village has won — all werewolves have been eliminated!';
-                } elseif ($winner === 'werewolf') {
+                } elseif ($winnerValue === GameTeam::Werewolves->value) {
                     $parts[] = 'The werewolves have won — they outnumber the villagers!';
-                } elseif ($winner === 'neutral') {
-                    $parts[] = 'The Tanner wins — they tricked the village into eliminating them!';
+                } elseif ($winnerValue === GameTeam::Neutral->value && $winner !== null) {
+                    $addendum = null;
+                    foreach ($this->roleRegistry->all() as $role) {
+                        $addendum = $role->gameOverVoiceWinnerAddendum($winner);
+                        if ($addendum !== null) {
+                            break;
+                        }
+                    }
+                    $parts[] = $addendum ?? 'A neutral player has won.';
                 }
                 // List surviving players
                 $survivors = $game->alivePlayers()->pluck('name')->implode(', ');

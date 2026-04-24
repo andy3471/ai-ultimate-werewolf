@@ -37,6 +37,14 @@ abstract class Role
     }
 
     /**
+     * Sort key for the automated night step pipeline (lower runs first). Null skips ordered night slots.
+     */
+    public function nightActionPipelineOrder(): ?int
+    {
+        return null;
+    }
+
+    /**
      * AI prompt instructions for the night action.
      */
     public function nightActionPrompt(): string
@@ -110,4 +118,56 @@ abstract class Role
      * The eliminated player's row may still reflect their role; downstream code may update `is_alive`.
      */
     public function onElimination(Game $game, Player $eliminated, GameEngine $engine): void {}
+
+    /**
+     * When eliminated by village vote, roles with an alternate win (e.g. Tanner) return outcome details.
+     *
+     * @return array{broadcast_message: string, message: string, team: GameTeam}|null
+     */
+    public function villageEliminationWinOutcome(Game $game, Player $eliminated): ?array
+    {
+        return null;
+    }
+
+    /**
+     * After dying speech, whether this role still needs elimination follow-up (e.g. Hunter shot).
+     */
+    public function pendingEliminationFollowUp(Game $game, Player $eliminated): bool
+    {
+        return false;
+    }
+
+    /**
+     * Night kill / protect targets for dawn resolution, keyed by contribution kind.
+     *
+     * @return array{kill_target?: string|null, protect_target?: string|null}
+     */
+    public function readNightResolutionContribution(Game $game, int $round): array
+    {
+        return [];
+    }
+
+    /**
+     * Copies of this role to place in the standard deck before villagers fill remaining seats.
+     */
+    public function standardDeckCopies(int $playerCount): int
+    {
+        return 0;
+    }
+
+    /**
+     * Order roles when building the standard deck (lower is earlier in the pre-shuffle list).
+     */
+    public function standardDeckCompositionOrder(): int
+    {
+        return 100;
+    }
+
+    /**
+     * Optional extra narration when the game ends with this winner team (VoiceService).
+     */
+    public function gameOverVoiceWinnerAddendum(GameTeam $winner): ?string
+    {
+        return null;
+    }
 }

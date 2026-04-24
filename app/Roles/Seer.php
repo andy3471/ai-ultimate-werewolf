@@ -34,6 +34,11 @@ class Seer extends Role
         return true;
     }
 
+    public function nightActionPipelineOrder(): ?int
+    {
+        return 20;
+    }
+
     public function nightActionPrompt(): string
     {
         return <<<'PROMPT'
@@ -136,5 +141,15 @@ class Seer extends Role
         broadcast(new PlayerActed($context->game->id, $event->toData()));
 
         return RoleActionResult::continue();
+    }
+
+    public function standardDeckCopies(int $playerCount): int
+    {
+        return 1;
+    }
+
+    public function standardDeckCompositionOrder(): int
+    {
+        return 20;
     }
 }

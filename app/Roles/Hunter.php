@@ -54,6 +54,25 @@ class Hunter extends Role
         return 'Hunter (Village team): If eliminated (day or night), immediately shoots one player, eliminating them as well. Wins when all werewolves are eliminated.';
     }
 
+    public function pendingEliminationFollowUp(Game $game, Player $eliminated): bool
+    {
+        return ! $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'hunter_shot')
+            ->exists();
+    }
+
+    public function standardDeckCopies(int $playerCount): int
+    {
+        return 1;
+    }
+
+    public function standardDeckCompositionOrder(): int
+    {
+        return 40;
+    }
+
     public function onElimination(Game $game, Player $eliminated, GameEngine $engine): void
     {
         try {

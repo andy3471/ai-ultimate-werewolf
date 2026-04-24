@@ -2,12 +2,12 @@
 
 namespace App\Services\GameSteps;
 
-use App\Enums\GameRole;
 use App\Models\Game;
 use App\Models\Player;
 use App\Services\DayActionService;
 use App\Services\EliminationService;
 use App\Services\GameEngine;
+use App\Services\RoleRegistry;
 use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\Dusk;
 
@@ -16,6 +16,7 @@ class DayVotingStepRunner
     public function __construct(
         protected DayActionService $dayActionService,
         protected EliminationService $eliminationService,
+        protected RoleRegistry $roleRegistry,
     ) {}
 
     public function run(Game $game, GameEngine $engine): bool
@@ -187,12 +188,7 @@ class DayVotingStepRunner
 
         if (
             $eliminatedPlayer
-            && $eliminatedPlayer->role === GameRole::Hunter
-            && ! $game->events()
-                ->where('round', $game->round)
-                ->where('phase', $game->phase->getValue())
-                ->where('type', 'hunter_shot')
-                ->exists()
+            && $this->roleRegistry->get($eliminatedPlayer->role)->pendingEliminationFollowUp($game, $eliminatedPlayer)
         ) {
             $this->eliminationService->processEliminationFollowUp($game, $eliminatedPlayer, $engine);
 

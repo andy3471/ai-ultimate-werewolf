@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\GameRole;
 use App\Enums\GameTeam;
 use App\Events\GameEnded;
 use App\Models\Game;
@@ -12,21 +11,31 @@ use App\States\GameStatus\Finished;
 
 class WinConditionResolver
 {
+    public function __construct(
+        protected RoleRegistry $roleRegistry,
+    ) {}
+
     public function resolve(Game $game, ?Player $eliminatedByVillage = null): bool
     {
         $game->refresh();
 
-        if ($eliminatedByVillage && $eliminatedByVillage->role === GameRole::Tanner) {
-            $message = "{$eliminatedByVillage->name} was the Tanner and WANTED to be eliminated! The Tanner wins!";
-            $this->finalizeGame($game, GameTeam::Neutral, $message);
-            broadcast(new GameEnded($game->id, GameTeam::Neutral->value, "{$eliminatedByVillage->name} was the Tanner and wins!"));
+        if ($eliminatedByVillage !== null) {
+            $outcome = $this->roleRegistry->get($eliminatedByVillage->role)->villageEliminationWinOutcome($game, $eliminatedByVillage);
+            if ($outcome !== null) {
+                $this->finalizeGame($game, $outcome['team'], $outcome['message']);
+                broadcast(new GameEnded($game->id, $outcome['team']->value, $outcome['broadcast_message']));
 
-            return true;
+                return true;
+            }
         }
 
         $alive = $game->alivePlayers()->get();
-        $werewolvesAlive = $alive->filter(fn (Player $player) => $player->role === GameRole::Werewolf)->count();
-        $villagersAlive = $alive->filter(fn (Player $player) => $player->role !== GameRole::Werewolf)->count();
+        $werewolvesAlive = $alive->filter(function (Player $player) {
+            return $this->roleRegistry->get($player->role)->team() === GameTeam::Werewolves;
+        })->count();
+        $villagersAlive = $alive->filter(function (Player $player) {
+            return $this->roleRegistry->get($player->role)->team() !== GameTeam::Werewolves;
+        })->count();
 
         if ($werewolvesAlive === 0) {
             $message = 'All werewolves have been eliminated! The village wins!';

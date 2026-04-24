@@ -42,4 +42,9 @@ class Villager extends Role
     {
         return PHP_INT_MAX;
     }
+
+    public function standardDeckCompositionOrder(): int
+    {
+        return 900;
+    }
 }

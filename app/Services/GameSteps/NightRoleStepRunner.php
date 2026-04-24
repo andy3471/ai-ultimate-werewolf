@@ -2,8 +2,8 @@
 
 namespace App\Services\GameSteps;
 
-use App\Enums\GameRole;
 use App\Models\Game;
+use App\Roles\Role;
 use App\Services\GameEngine;
 use App\Services\RoleRegistry;
 use App\States\GamePhase\Dawn;
@@ -17,7 +17,11 @@ class NightRoleStepRunner
     public function run(Game $game, GameEngine $engine): bool
     {
         $slots = [];
-        $nightRoles = [GameRole::Werewolf, GameRole::Seer, GameRole::Bodyguard];
+        $nightRoles = collect($this->roleRegistry->all())
+            ->filter(fn (Role $role) => $role->hasNightAction() && $role->nightActionPipelineOrder() !== null)
+            ->sortBy(fn (Role $role) => $role->nightActionPipelineOrder())
+            ->map(fn (Role $role) => $role->id())
+            ->values();
 
         foreach ($nightRoles as $roleId) {
             $role = $this->roleRegistry->get($roleId);

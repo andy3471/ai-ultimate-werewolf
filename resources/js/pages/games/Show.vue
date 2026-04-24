@@ -138,9 +138,9 @@ function phaseLabel(p: string): string {
         lobby: 'Waiting for game to start...',
         night: 'Night actions are in progress.',
         dawn: 'Night actions are resolved.',
-        day_discussion: 'Players discuss and share suspicions.',
-        day_voting: 'Players vote to eliminate a suspect.',
-        dusk: 'The vote is resolved.',
+        day_discussion: 'Players discuss in turn; nominations start after.',
+        day_voting: 'Nominations, second, defense, then trial vote.',
+        dusk: 'Trial resolved; night may follow.',
         game_over: 'The game has ended.',
     };
     return map[p] || '';

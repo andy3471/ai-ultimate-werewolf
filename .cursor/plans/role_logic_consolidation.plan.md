@@ -4,28 +4,28 @@ overview: Move remaining role-specific rules out of services/runners into Role c
 todos:
   - id: inventory-freeze-contracts
     content: Freeze public event contracts (types, payload keys) and list every non-role caller that depends on them; document in-repo as checklist for refactors.
-    status: pending
+    status: completed
   - id: wincondition-tanner-teams
     content: Refactor WinConditionResolver — delegate Tanner village-elimination win to Tanner role hook; replace hardcoded werewolf vs non-werewolf counts with team aggregation via RoleRegistry (Werewolves vs Village vs Neutral).
-    status: pending
+    status: completed
   - id: night-order-from-registry
     content: Replace NightRoleStepRunner hardcoded [Werewolf, Seer, Bodyguard] with registry-driven ordering (e.g. Role::nightResolutionOrder() or ordered list from roles that haveNightAction()).
-    status: pending
+    status: completed
   - id: nightresolver-decompose
     content: Split NightResolver dawn kill/save resolution — move kill/protect source queries to Werewolf/Bodyguard (or small collaborators), keep a single composer that applies interaction rules and emits same dawn events.
-    status: pending
+    status: completed
   - id: pipeline-hunter-markers
     content: Generalize DayVotingStepRunner + DawnStepRunner hunter_shot / hunter_shot_followup_done sequencing — either role-declared follow-up steps after onElimination, or a tiny EliminationPipeline value object driven by events (no GameRole::Hunter branch in runner).
-    status: pending
+    status: completed
   - id: voice-narration-hints
     content: Optional — extract narrator strings for role-tinted outcomes (bodyguard save, hunter shot, tanner win) to Role::narrationContext() fragments or a NarrationHint registry to reduce VoiceService string coupling.
-    status: pending
+    status: completed
   - id: gamesetup-deck-metadata
     content: Optional — express GameSetupService deck composition via role metadata (required roles, counts by player count) instead of a hardcoded PHP array.
-    status: pending
+    status: completed
   - id: tests-per-phase
     content: Add/update feature tests for win resolution (Tanner, village, wolves), dawn resolution (save/kill/none), and night order; run minimal suites after each phase.
-    status: pending
+    status: completed
 isProject: false
 ---
 

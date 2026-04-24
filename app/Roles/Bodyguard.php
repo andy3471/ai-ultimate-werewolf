@@ -33,6 +33,11 @@ class Bodyguard extends Role
         return true;
     }
 
+    public function nightActionPipelineOrder(): ?int
+    {
+        return 30;
+    }
+
     public function nightActionPrompt(): string
     {
         return <<<'PROMPT'
@@ -123,5 +128,27 @@ class Bodyguard extends Role
     public function skipNightPhase(Game $game): bool
     {
         return $game->round === 1;
+    }
+
+    public function readNightResolutionContribution(Game $game, int $round): array
+    {
+        $event = $game->events()
+            ->where('round', $round)
+            ->where('type', 'bodyguard_protect')
+            ->first();
+
+        return [
+            'protect_target' => $event?->target_player_id,
+        ];
+    }
+
+    public function standardDeckCopies(int $playerCount): int
+    {
+        return 1;
+    }
+
+    public function standardDeckCompositionOrder(): int
+    {
+        return 30;
     }
 }
