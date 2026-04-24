@@ -10,7 +10,6 @@ use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\DayVoting;
 use App\States\GameStatus\Running;
 use Illuminate\Support\Facades\Event;
-use Laravel\Ai\Prompts\AgentPrompt;
 
 /**
  * Call the protected processDayDiscussion method on GameEngine.
@@ -41,7 +40,7 @@ function createGameInDiscussion(int $playerCount = 5): Game
     foreach ($roles as $i => $role) {
         Player::create([
             'game_id' => $game->id,
-            'name' => "Player ".($i + 1),
+            'name' => 'Player '.($i + 1),
             'provider' => 'openai',
             'model' => 'gpt-4o',
             'role' => $role->value,
@@ -162,6 +161,23 @@ test('discussion transitions to day voting phase', function () {
 
     $game->refresh();
     expect($game->phase)->toBeInstanceOf(DayVoting::class);
+});
+
+test('dead player roles appear as confirmed facts in game context', function () {
+    $game = createGameInDiscussion(5);
+
+    // Kill a player so their role should be confirmed in context
+    $deadPlayer = $game->players()->where('order', 0)->first();
+    $deadPlayer->update(['is_alive' => false]);
+
+    $alivePlayer = $game->players()->where('order', 1)->first();
+
+    $context = app(\App\Ai\Context\GameContext::class)->buildForPlayer($game->fresh(['players']), $alivePlayer);
+
+    // The dead player's role should be shown as "Confirmed role: werewolf"
+    expect($context)->toContain("Confirmed role: {$deadPlayer->role->value}");
+    // The header should explain that dead roles are confirmed
+    expect($context)->toContain('Dead players\' roles are publicly revealed and confirmed.');
 });
 
 test('RunGame job implements ShouldBeUnique', function () {

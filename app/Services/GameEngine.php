@@ -15,6 +15,8 @@ use App\Events\PlayerEliminated;
 use App\Models\Game;
 use App\Models\GameEvent;
 use App\Models\Player;
+use App\Services\GameSteps\DayDiscussionStepRunner;
+use App\Services\GameSteps\DayVotingStepRunner;
 use App\States\GamePhase\Dawn;
 use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\DayVoting;
@@ -25,11 +27,14 @@ use App\States\GamePhase\NightSeer;
 use App\States\GamePhase\NightWerewolf;
 use App\States\GameStatus\Finished;
 use App\States\GameStatus\Running;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class GameEngine
 {
     protected const PHASE_DELAY_SECONDS = 2;
+
+    protected const MAX_ROUNDS = 20;
 
     public function __construct(
         protected RoleRegistry $roleRegistry,
@@ -37,6 +42,8 @@ class GameEngine
         protected VoteResolver $voteResolver,
         protected GameContext $gameContext,
         protected VoiceService $voiceService,
+        protected DayDiscussionStepRunner $dayDiscussionStepRunner,
+        protected DayVotingStepRunner $dayVotingStepRunner,
     ) {}
 
     /**
@@ -70,69 +77,224 @@ class GameEngine
 
         // Transition game state
         $game->status->transitionTo(Running::class);
-        $game->update(['round' => 1, 'role_distribution' => $roleDistribution]);
+        $game->update(['round' => 1, 'phase_step' => 0, 'role_distribution' => $roleDistribution]);
         $game->phase->transitionTo(NightWerewolf::class);
 
         $this->broadcastPhaseChange($game);
     }
 
     /**
-     * Run the full game loop. Called from a queued job.
+     * Execute one game step and return next-step metadata.
+     *
+     * @return array{delay_seconds: int}
      */
-    public function run(Game $game): void
+    public function runStep(Game $game): array
     {
-        $maxRounds = 20; // Safety limit
+        $this->pendingDelaySeconds = 0;
+        $game->refresh();
 
-        while ($game->round <= $maxRounds) {
-            $game->refresh();
-
-            if ($game->phase instanceof GameOver) {
-                break;
-            }
-
-            try {
-                $this->processCurrentPhase($game);
-            } catch (\Throwable $e) {
-                Log::error('GameEngine error', [
-                    'game_id' => $game->id,
-                    'phase' => $game->phase->getValue(),
-                    'round' => $game->round,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-
-                $game->events()->create([
-                    'round' => $game->round,
-                    'phase' => $game->phase->getValue(),
-                    'type' => 'error',
-                    'data' => ['message' => 'An error occurred: '.$e->getMessage()],
-                    'is_public' => true,
-                ]);
-
-                break;
-            }
-
-            sleep(self::PHASE_DELAY_SECONDS);
+        if (
+            $game->phase instanceof GameOver
+            || $game->status instanceof Finished
+            || $game->round > self::MAX_ROUNDS
+        ) {
+            return ['delay_seconds' => 0];
         }
+
+        try {
+            $phaseTransitioned = match (true) {
+                $game->phase instanceof NightWerewolf => $this->runNightWerewolfStep($game),
+                $game->phase instanceof NightSeer => $this->runNightSeerStep($game),
+                $game->phase instanceof NightBodyguard => $this->runNightBodyguardStep($game),
+                $game->phase instanceof Dawn => $this->runDawnStep($game),
+                $game->phase instanceof DayDiscussion => $this->runDayDiscussionStep($game),
+                $game->phase instanceof DayVoting => $this->runDayVotingStep($game),
+                $game->phase instanceof Dusk => $this->runDuskStep($game),
+                default => true,
+            };
+
+            if (! $phaseTransitioned) {
+                $this->advancePhaseStep($game);
+            }
+        } catch (\Throwable $e) {
+            Log::error('GameEngine error', [
+                'game_id' => $game->id,
+                'phase' => $game->phase->getValue(),
+                'round' => $game->round,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $game->events()->create([
+                'round' => $game->round,
+                'phase' => $game->phase->getValue(),
+                'type' => 'error',
+                'data' => ['message' => 'An error occurred: '.$e->getMessage()],
+                'is_public' => true,
+            ]);
+        }
+
+        return ['delay_seconds' => max(self::PHASE_DELAY_SECONDS, $this->pendingDelaySeconds)];
     }
 
-    /**
-     * Process the current phase and advance to the next one.
-     */
-    protected function processCurrentPhase(Game $game): void
+    public function runCurrentPhase(Game $game): int
     {
-        $phase = $game->phase;
+        return $this->runStep($game)['delay_seconds'];
+    }
 
-        match (true) {
-            $phase instanceof NightWerewolf => $this->processNightWerewolf($game),
-            $phase instanceof NightSeer => $this->processNightSeer($game),
-            $phase instanceof NightBodyguard => $this->processNightBodyguard($game),
-            $phase instanceof Dawn => $this->processDawn($game),
-            $phase instanceof DayDiscussion => $this->processDayDiscussion($game),
-            $phase instanceof DayVoting => $this->processDayVoting($game),
-            $phase instanceof Dusk => $this->processDusk($game),
-            default => null,
-        };
+    public function maxRounds(): int
+    {
+        return self::MAX_ROUNDS;
+    }
+
+    protected function runNightWerewolfStep(Game $game): bool
+    {
+        $werewolves = $game->alivePlayers()
+            ->where('role', GameRole::Werewolf->value)
+            ->get()
+            ->values();
+
+        if ($werewolves->isEmpty()) {
+            $this->transitionToPhase($game, NightSeer::class);
+
+            return true;
+        }
+
+        if ($game->phase_step < $werewolves->count()) {
+            $werewolf = $werewolves->get($game->phase_step);
+            $this->processWerewolfProposal($game, $werewolf);
+
+            return false;
+        }
+
+        $this->resolveWerewolfTarget($game);
+        $this->transitionToPhase($game, NightSeer::class);
+
+        return true;
+    }
+
+    protected function runNightSeerStep(Game $game): bool
+    {
+        if ($game->phase_step > 0) {
+            return true;
+        }
+
+        $this->processNightSeer($game);
+
+        return true;
+    }
+
+    protected function runNightBodyguardStep(Game $game): bool
+    {
+        if ($game->phase_step > 0) {
+            return true;
+        }
+
+        $this->processNightBodyguard($game);
+
+        return true;
+    }
+
+    protected function runDawnStep(Game $game): bool
+    {
+        $resolution = $this->getOrCreateDawnResolution($game);
+        $dawnEvents = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', Dawn::$name)
+            ->whereIn('type', ['death', 'bodyguard_save', 'no_death'])
+            ->orderBy('id')
+            ->get()
+            ->values();
+
+        if ($game->phase_step < $dawnEvents->count()) {
+            $event = $dawnEvents->get($game->phase_step);
+
+            if ($event->type === 'death') {
+                broadcast(new PlayerEliminated(
+                    $game->id,
+                    $event->toData(),
+                    $event->target_player_id,
+                    $event->data['role_revealed'] ?? 'unknown',
+                ));
+            } else {
+                broadcast(new PlayerActed($game->id, $event->toData()));
+            }
+
+            $this->addDelaySeconds(2);
+
+            return false;
+        }
+
+        $stepAfterBroadcasts = (int) $dawnEvents->count();
+        if ($game->phase_step === $stepAfterBroadcasts) {
+            $this->generateAndBroadcastNarration($game);
+
+            return false;
+        }
+
+        $killedPlayerId = $resolution['killed_player_id'] ?? null;
+        $killedPlayer = $killedPlayerId ? Player::find($killedPlayerId) : null;
+
+        if ($killedPlayer) {
+            if ($game->phase_step === $stepAfterBroadcasts + 1) {
+                $this->giveDyingSpeech($game, $killedPlayer);
+
+                return false;
+            }
+
+            if ($game->phase_step === $stepAfterBroadcasts + 2) {
+                $this->processHunterRevengeShot($game, $killedPlayer);
+
+                return false;
+            }
+
+            if ($game->phase_step === $stepAfterBroadcasts + 3) {
+                $shotEvent = $game->events()
+                    ->where('round', $game->round)
+                    ->where('phase', $game->phase->getValue())
+                    ->where('type', 'hunter_shot')
+                    ->latest('id')
+                    ->first();
+
+                if ($shotEvent && $shotEvent->target_player_id) {
+                    $shotPlayer = Player::find($shotEvent->target_player_id);
+                    if ($shotPlayer) {
+                        $this->giveDyingSpeech($game, $shotPlayer);
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        if ($this->checkWinCondition($game)) {
+            return true;
+        }
+
+        $this->transitionToPhase($game, DayDiscussion::class);
+
+        return true;
+    }
+
+    protected function runDayDiscussionStep(Game $game): bool
+    {
+        return $this->dayDiscussionStepRunner->run($game, $this);
+    }
+
+    protected function runDayVotingStep(Game $game): bool
+    {
+        return $this->dayVotingStepRunner->run($game, $this);
+    }
+
+    protected function runDuskStep(Game $game): bool
+    {
+        if ($game->phase_step > 0) {
+            return true;
+        }
+
+        $this->processDusk($game);
+
+        return true;
     }
 
     // =========================================================================
@@ -218,8 +380,7 @@ class GameEngine
             ->where('type', 'werewolf_kill')
             ->update(['target_player_id' => $finalTarget]);
 
-        $game->phase->transitionTo(NightSeer::class);
-        $this->broadcastPhaseChange($game);
+        $this->transitionToPhase($game, NightSeer::class);
     }
 
     protected function processNightSeer(Game $game): void
@@ -267,8 +428,7 @@ class GameEngine
             broadcast(new PlayerActed($game->id, $event->toData()));
         }
 
-        $game->phase->transitionTo(NightBodyguard::class);
-        $this->broadcastPhaseChange($game);
+        $this->transitionToPhase($game, NightBodyguard::class);
     }
 
     /**
@@ -340,10 +500,9 @@ class GameEngine
             broadcast(new PlayerActed($game->id, $event->toData()));
         }
 
-        $game->phase->transitionTo(Dawn::class);
         // Don't narrate dawn yet — we need to resolve night actions first
         // so the narrator knows who died. Narration happens in processDawn().
-        $this->broadcastPhaseChange($game, narrate: false);
+        $this->transitionToPhase($game, Dawn::class, narrate: false);
     }
 
     // =========================================================================
@@ -367,7 +526,7 @@ class GameEngine
             } else {
                 broadcast(new PlayerActed($game->id, $event->toData()));
             }
-            sleep(2);
+            $this->addDelaySeconds(2);
         }
 
         // NOW narrate dawn — the death/save events exist so the narrator
@@ -622,6 +781,11 @@ class GameEngine
     protected float $lastAudioDuration = 0;
 
     /**
+     * Total seconds to wait before running the next phase job.
+     */
+    protected int $pendingDelaySeconds = 0;
+
+    /**
      * Generate TTS audio for an event and attach the URL.
      * Stores the real audio duration for waitForAudio().
      */
@@ -638,23 +802,17 @@ class GameEngine
     }
 
     /**
-     * Sleep long enough for the frontend to finish playing the last audio clip.
-     * Uses the real file duration when available, otherwise a sensible fallback.
+     * Accumulate a delay long enough for frontend audio playback.
      */
     protected function waitForAudio(): void
     {
         if ($this->lastAudioDuration > 0) {
-            // Sleep for the actual audio duration + buffer for network/decode latency
             $delay = (int) ceil($this->lastAudioDuration) + 2;
-            sleep($delay);
+            $this->addDelaySeconds($delay);
         } elseif ($this->voiceService->isAvailable()) {
-            // Voices are enabled but this particular clip failed to generate.
-            // Use a longer fallback so we don't overtake the frontend audio queue
-            // (a previous clip may still be playing).
-            sleep(4);
+            $this->addDelaySeconds(4);
         } else {
-            // No voices at all — just a brief pause for readability
-            sleep(1);
+            $this->addDelaySeconds(1);
         }
 
         $this->lastAudioDuration = 0;
@@ -923,7 +1081,7 @@ class GameEngine
         ]);
 
         broadcast(new PlayerActed($game->id, $voteTallyEvent->toData()));
-        sleep(3); // Pause so user can see the result before the outcome
+        $this->addDelaySeconds(3);
 
         // Majority required to eliminate
         if ($yesVotes > $noVotes) {
@@ -950,7 +1108,7 @@ class GameEngine
                 $accused->role->value,
             ));
 
-            sleep(3); // Pause so the user can see the elimination before dying speech
+            $this->addDelaySeconds(3);
 
             // Dying speech + Hunter revenge for the eliminated player
             $this->giveDyingSpeech($game, $accused);
@@ -971,7 +1129,7 @@ class GameEngine
             ]);
 
             broadcast(new PlayerActed($game->id, $noElimEvent->toData()));
-            sleep(3);
+            $this->addDelaySeconds(3);
         }
 
         $game->phase->transitionTo(Dusk::class);
@@ -991,8 +1149,7 @@ class GameEngine
 
         // Start next round
         $game->update(['round' => $game->round + 1]);
-        $game->phase->transitionTo(NightWerewolf::class);
-        $this->broadcastPhaseChange($game);
+        $this->transitionToPhase($game, NightWerewolf::class);
     }
 
     // =========================================================================
@@ -1002,7 +1159,7 @@ class GameEngine
     /**
      * Give an eliminated player their last words.
      */
-    protected function giveDyingSpeech(Game $game, Player $player): void
+    public function giveDyingSpeech(Game $game, Player $player): void
     {
         try {
             $context = $this->gameContext->buildForPlayer($game, $player);
@@ -1127,13 +1284,13 @@ class GameEngine
      *
      * @param  Player|null  $eliminatedByVillage  If set, the player just voted out (check Tanner win)
      */
-    protected function checkWinCondition(Game $game, ?Player $eliminatedByVillage = null): bool
+    public function checkWinCondition(Game $game, ?Player $eliminatedByVillage = null): bool
     {
         $game->refresh();
 
         // Tanner win: if the Tanner was eliminated by village vote, Tanner wins (solo)
         if ($eliminatedByVillage && $eliminatedByVillage->role === GameRole::Tanner) {
-            $game->update(['winner' => GameTeam::Neutral]);
+            $game->update(['winner' => GameTeam::Neutral, 'phase_step' => 0]);
             $game->phase->transitionTo(GameOver::class);
             $game->status->transitionTo(Finished::class);
 
@@ -1177,7 +1334,7 @@ class GameEngine
         }
 
         if ($winner) {
-            $game->update(['winner' => $winner]);
+            $game->update(['winner' => $winner, 'phase_step' => 0]);
             $game->phase->transitionTo(GameOver::class);
             $game->status->transitionTo(Finished::class);
 
@@ -1386,5 +1543,509 @@ class GameEngine
 
         $this->lastAudioDuration = $narration['duration'];
         $this->waitForAudio();
+    }
+
+    protected function advancePhaseStep(Game $game): void
+    {
+        $game->update(['phase_step' => $game->phase_step + 1]);
+    }
+
+    public function transitionToPhase(Game $game, string $phaseClass, bool $narrate = true): void
+    {
+        $game->phase->transitionTo($phaseClass);
+        $game->update(['phase_step' => 0]);
+        $this->broadcastPhaseChange($game, narrate: $narrate);
+    }
+
+    protected function processWerewolfProposal(Game $game, Player $werewolf): void
+    {
+        $context = $this->gameContext->buildForPlayer($game, $werewolf);
+        $existingProposals = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'werewolf_kill')
+            ->orderBy('id')
+            ->get();
+
+        if ($existingProposals->isNotEmpty()) {
+            $context .= "\n\n## Werewolf Pack Discussion\n";
+            $context .= "Your fellow wolves have already proposed targets:\n";
+            foreach ($existingProposals as $proposal) {
+                $wolfName = $proposal->actor?->name ?? 'Unknown wolf';
+                $targetName = $proposal->target?->name ?? 'unknown';
+                $reasoning = $proposal->data['public_reasoning'] ?? '';
+                $context .= "- {$wolfName} wants to kill {$targetName}: \"{$reasoning}\"\n";
+            }
+            $context .= "\nConsider agreeing with your pack for a coordinated attack, unless you have a strong reason to disagree.";
+        }
+
+        $role = $this->roleRegistry->get($werewolf->role);
+        $result = NightActionAgent::make(
+            player: $werewolf,
+            game: $game,
+            context: $context,
+            actionPrompt: $role->nightActionPrompt(),
+        )->prompt(
+            'Choose your target for tonight.',
+            provider: $werewolf->provider,
+            model: $werewolf->model,
+        );
+
+        $targetId = $this->resolveTargetId($result['target_id'], $game, excludePlayerId: $werewolf->id);
+        $event = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'werewolf_kill',
+            'actor_player_id' => $werewolf->id,
+            'target_player_id' => $targetId,
+            'data' => [
+                'thinking' => $result['thinking'] ?? '',
+                'public_reasoning' => $result['public_reasoning'] ?? '',
+            ],
+            'is_public' => false,
+        ]);
+
+        broadcast(new PlayerActed($game->id, $event->toData()));
+    }
+
+    protected function resolveWerewolfTarget(Game $game): void
+    {
+        $finalTarget = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'werewolf_kill')
+            ->pluck('target_player_id')
+            ->countBy()
+            ->sortDesc()
+            ->keys()
+            ->first();
+
+        $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'werewolf_kill')
+            ->update(['target_player_id' => $finalTarget]);
+    }
+
+    /**
+     * @param  Collection<int,Player>  $alivePlayers
+     * @return array{opening_order: array<int,string>, total_budget:int}
+     */
+    public function getOrCreateDiscussionPlan(Game $game, Collection $alivePlayers): array
+    {
+        $planEvent = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'discussion_plan')
+            ->latest('id')
+            ->first();
+
+        if ($planEvent) {
+            return $planEvent->data;
+        }
+
+        $openingOrder = $alivePlayers->shuffle()->pluck('id')->values()->all();
+        $totalBudget = $alivePlayers->count() * 2;
+
+        $event = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'discussion_plan',
+            'data' => [
+                'opening_order' => $openingOrder,
+                'total_budget' => $totalBudget,
+            ],
+            'is_public' => false,
+        ]);
+
+        return $event->data;
+    }
+
+    public function createDiscussionMessage(Game $game, Player $speaker, string $prompt): void
+    {
+        $context = $this->gameContext->buildForPlayer($game, $speaker);
+        $result = DiscussionAgent::make(
+            player: $speaker,
+            game: $game,
+            context: $context,
+        )->prompt(
+            $prompt,
+            provider: $speaker->provider,
+            model: $speaker->model,
+        );
+
+        $wantsToSpeak = $result['wants_to_speak'] ?? true;
+        if (! $wantsToSpeak) {
+            $game->events()->create([
+                'round' => $game->round,
+                'phase' => $game->phase->getValue(),
+                'type' => 'discussion_pass',
+                'actor_player_id' => $speaker->id,
+                'data' => [
+                    'thinking' => $result['thinking'] ?? '',
+                ],
+                'is_public' => false,
+            ]);
+
+            return;
+        }
+
+        $message = $result['message'] ?? (string) $result;
+        $addressedId = $this->resolveAddressedPlayerId($result['addressed_player_id'] ?? 0, $game, $speaker->id);
+        $event = $this->recordDiscussionEvent($game, $speaker, $message, $result, $addressedId);
+        broadcast(new PlayerActed($game->id, $event->toData()));
+        $this->waitForAudio();
+    }
+
+    public function createNomination(Game $game, Player $player): void
+    {
+        $context = $this->gameContext->buildForPlayer($game, $player);
+        $result = VoteAgent::make(
+            player: $player,
+            game: $game,
+            context: $context,
+        )->prompt(
+            'Nominate a player you want to put on trial for elimination. Consider everything discussed today.',
+            provider: $player->provider,
+            model: $player->model,
+        );
+
+        $targetId = $this->resolveTargetId($result['target_id'], $game, excludePlayerId: $player->id);
+        $reasoning = $result['public_reasoning'] ?? '';
+        $event = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'nomination',
+            'actor_player_id' => $player->id,
+            'target_player_id' => $targetId,
+            'data' => [
+                'thinking' => $result['thinking'] ?? '',
+                'public_reasoning' => $reasoning,
+            ],
+            'is_public' => true,
+        ]);
+
+        if (! empty($reasoning)) {
+            $this->generateAndAttachAudio($event, $player, $reasoning);
+        }
+
+        broadcast(new PlayerActed($game->id, $event->toData()));
+
+        if (! empty($reasoning)) {
+            $this->waitForAudio();
+        }
+    }
+
+    public function createNominationResult(Game $game, Collection $alivePlayers): ?Player
+    {
+        $tally = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'nomination')
+            ->pluck('target_player_id')
+            ->countBy()
+            ->sortDesc();
+
+        $topCount = $tally->first();
+        if ($topCount === null) {
+            return null;
+        }
+
+        $topCandidates = $tally->filter(fn (int $count) => $count === $topCount)->keys();
+        $accusedId = $topCandidates->count() > 1
+            ? $topCandidates->random()
+            : $topCandidates->first();
+
+        $accused = $alivePlayers->firstWhere('id', $accusedId);
+        if (! $accused) {
+            return null;
+        }
+
+        $event = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'nomination_result',
+            'target_player_id' => $accused->id,
+            'data' => [
+                'message' => "{$accused->name} has been put on trial with {$topCount} nomination(s).",
+                'tally' => $tally->all(),
+            ],
+            'is_public' => true,
+        ]);
+
+        broadcast(new PlayerActed($game->id, $event->toData()));
+
+        return $accused;
+    }
+
+    public function createDefenseSpeech(Game $game, Player $accused): void
+    {
+        $defenseContext = $this->gameContext->buildForPlayer($game, $accused);
+        $defenseContext .= "\n\n## YOU ARE ON TRIAL\nThe village has nominated you for elimination. This is your chance to defend yourself. Convince them you are not a werewolf!";
+
+        $defenseResult = DiscussionAgent::make(
+            player: $accused,
+            game: $game,
+            context: $defenseContext,
+        )->prompt(
+            'You are on trial! Make your defense speech. Convince the village to spare you.',
+            provider: $accused->provider,
+            model: $accused->model,
+        );
+
+        $defenseMessage = $defenseResult['message'] ?? (string) $defenseResult;
+        $defenseEvent = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'defense_speech',
+            'actor_player_id' => $accused->id,
+            'data' => [
+                'thinking' => $defenseResult['thinking'] ?? '',
+                'message' => $defenseMessage,
+            ],
+            'is_public' => true,
+        ]);
+
+        $this->generateAndAttachAudio($defenseEvent, $accused, $defenseMessage);
+        broadcast(new PlayerActed($game->id, $defenseEvent->toData()));
+        $this->waitForAudio();
+    }
+
+    public function createTrialVote(Game $game, Player $voter, Player $accused): void
+    {
+        $accusedNumber = $accused->order + 1;
+        $voteContext = $this->gameContext->buildForPlayer($game, $voter);
+        $voteContext .= "\n\n## TRIAL VOTE\n{$accused->name} [{$accusedNumber}] is on trial. You heard their defense. Vote YES to eliminate them or NO to spare them.\nSet target_id to {$accusedNumber} if you vote YES (eliminate), or 0 if you vote NO (spare).";
+
+        $voteResult = VoteAgent::make(
+            player: $voter,
+            game: $game,
+            context: $voteContext,
+        )->prompt(
+            "Vote on {$accused->name}'s fate. target_id={$accusedNumber} for YES (eliminate), target_id=0 for NO (spare).",
+            provider: $voter->provider,
+            model: $voter->model,
+        );
+
+        $votedYes = ((int) ($voteResult['target_id'] ?? 0)) === $accusedNumber;
+        $reasoning = $voteResult['public_reasoning'] ?? '';
+        $event = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'vote',
+            'actor_player_id' => $voter->id,
+            'target_player_id' => $votedYes ? $accused->id : null,
+            'data' => [
+                'thinking' => $voteResult['thinking'] ?? '',
+                'public_reasoning' => $reasoning,
+                'vote' => $votedYes ? 'yes' : 'no',
+            ],
+            'is_public' => true,
+        ]);
+
+        if (! empty($reasoning)) {
+            $this->generateAndAttachAudio($event, $voter, $reasoning);
+        }
+
+        broadcast(new PlayerActed($game->id, $event->toData()));
+
+        if (! empty($reasoning)) {
+            $this->waitForAudio();
+        }
+    }
+
+    /**
+     * @return array{eliminated_id: string|null}
+     */
+    public function createTrialOutcome(Game $game, Player $accused): array
+    {
+        $yesVotes = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'vote')
+            ->where('target_player_id', $accused->id)
+            ->count();
+
+        $totalVotes = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'vote')
+            ->count();
+        $noVotes = max(0, $totalVotes - $yesVotes);
+
+        $voteTallyEvent = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'vote_tally',
+            'target_player_id' => $accused->id,
+            'data' => [
+                'message' => "Trial vote for {$accused->name}: {$yesVotes} yes, {$noVotes} no.",
+                'yes' => $yesVotes,
+                'no' => $noVotes,
+            ],
+            'is_public' => true,
+        ]);
+
+        broadcast(new PlayerActed($game->id, $voteTallyEvent->toData()));
+        $this->addDelaySeconds(3);
+
+        if ($yesVotes > $noVotes) {
+            $accused->update(['is_alive' => false]);
+
+            $eliminationEvent = $game->events()->create([
+                'round' => $game->round,
+                'phase' => $game->phase->getValue(),
+                'type' => 'elimination',
+                'target_player_id' => $accused->id,
+                'data' => [
+                    'message' => "{$accused->name} has been eliminated by the village. Their role is confirmed: {$accused->role->value}.",
+                    'role_revealed' => $accused->role->value,
+                    'votes_yes' => $yesVotes,
+                    'votes_no' => $noVotes,
+                ],
+                'is_public' => true,
+            ]);
+
+            broadcast(new PlayerEliminated(
+                $game->id,
+                $eliminationEvent->toData(),
+                $accused->id,
+                $accused->role->value,
+            ));
+            $this->addDelaySeconds(3);
+
+            $game->events()->create([
+                'round' => $game->round,
+                'phase' => $game->phase->getValue(),
+                'type' => 'vote_outcome',
+                'data' => ['eliminated_id' => $accused->id],
+                'is_public' => false,
+            ]);
+
+            return ['eliminated_id' => $accused->id];
+        }
+
+        $noElimEvent = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'no_elimination',
+            'target_player_id' => $accused->id,
+            'data' => ['message' => "{$accused->name} has been spared by the village ({$yesVotes} yes, {$noVotes} no)."],
+            'is_public' => true,
+        ]);
+
+        broadcast(new PlayerActed($game->id, $noElimEvent->toData()));
+        $this->addDelaySeconds(3);
+
+        $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'vote_outcome',
+            'data' => ['eliminated_id' => null],
+            'is_public' => false,
+        ]);
+
+        return ['eliminated_id' => null];
+    }
+
+    /**
+     * @return array{killed_player_id: string|null}
+     */
+    protected function getOrCreateDawnResolution(Game $game): array
+    {
+        $resolutionEvent = $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->where('type', 'dawn_resolution')
+            ->latest('id')
+            ->first();
+
+        if ($resolutionEvent) {
+            return $resolutionEvent->data;
+        }
+
+        $result = $this->nightResolver->resolve($game);
+        $resolution = [
+            'killed_player_id' => $result['killed']?->id,
+        ];
+
+        $created = $game->events()->create([
+            'round' => $game->round,
+            'phase' => $game->phase->getValue(),
+            'type' => 'dawn_resolution',
+            'data' => $resolution,
+            'is_public' => false,
+        ]);
+
+        return $created->data;
+    }
+
+    public function processHunterRevengeShot(Game $game, Player $deadPlayer): void
+    {
+        if ($deadPlayer->role !== GameRole::Hunter) {
+            return;
+        }
+
+        try {
+            $context = $this->gameContext->buildForPlayer($game, $deadPlayer);
+            $context .= "\n\n## HUNTER'S REVENGE\nYou have been eliminated, but as the Hunter, you get to take one player down with you! Choose wisely — target who you believe is a werewolf.";
+
+            $result = NightActionAgent::make(
+                player: $deadPlayer,
+                game: $game,
+                context: $context,
+                actionPrompt: 'You are the Hunter. Choose one alive player to shoot with your dying action. Pick who you believe is a werewolf.',
+            )->prompt(
+                'Choose a player to take down with you.',
+                provider: $deadPlayer->provider,
+                model: $deadPlayer->model,
+            );
+
+            $targetId = $this->resolveTargetId($result['target_id'], $game, excludePlayerId: $deadPlayer->id);
+            $target = $targetId ? Player::find($targetId) : null;
+
+            if ($target && $target->is_alive) {
+                $target->update(['is_alive' => false]);
+
+                $hunterMessage = "{$deadPlayer->name} was the Hunter and shoots {$target->name} with their dying breath! {$target->name} was a {$target->role->value}.";
+                $event = $game->events()->create([
+                    'round' => $game->round,
+                    'phase' => $game->phase->getValue(),
+                    'type' => 'hunter_shot',
+                    'actor_player_id' => $deadPlayer->id,
+                    'target_player_id' => $target->id,
+                    'data' => [
+                        'thinking' => $result['thinking'] ?? '',
+                        'public_reasoning' => $result['public_reasoning'] ?? '',
+                        'message' => $hunterMessage,
+                        'role_revealed' => $target->role->value,
+                    ],
+                    'is_public' => true,
+                ]);
+
+                $this->generateAndAttachAudio($event, $deadPlayer, $hunterMessage);
+                broadcast(new PlayerEliminated(
+                    $game->id,
+                    $event->toData(),
+                    $target->id,
+                    $target->role->value,
+                ));
+                $this->waitForAudio();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to process Hunter revenge', [
+                'player_id' => $deadPlayer->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function addDelaySeconds(int $seconds): void
+    {
+        if ($seconds <= 0) {
+            return;
+        }
+
+        $this->pendingDelaySeconds += $seconds;
     }
 }

@@ -40,6 +40,18 @@ class RunGame implements ShouldBeUnique, ShouldQueue
     public function handle(GameEngine $engine): void
     {
         $engine->startGame($this->game);
-        $engine->run($this->game);
+
+        $game = $this->game->fresh();
+
+        if (! $game) {
+            return;
+        }
+
+        RunCurrentPhase::dispatch(
+            $game,
+            (int) $game->round,
+            $game->phase->getValue(),
+            (int) $game->phase_step,
+        );
     }
 }

@@ -24,6 +24,7 @@ class GameFactory extends Factory
             'status' => Pending::getMorphClass(),
             'phase' => Lobby::getMorphClass(),
             'round' => 0,
+            'phase_step' => 0,
         ];
     }
 }
