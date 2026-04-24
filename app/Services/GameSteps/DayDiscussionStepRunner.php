@@ -27,7 +27,10 @@ class DayDiscussionStepRunner
 
         $plan = $this->dayActionService->getOrCreateDiscussionPlan($game, $alivePlayers);
         $openingOrder = collect($plan['opening_order'] ?? [])->values();
-        $totalBudget = (int) ($plan['total_budget'] ?? ($playerCount * 2));
+        $baseBudget = (int) ($plan['total_budget'] ?? ($playerCount * 2));
+        $extensionBudget = max(1, (int) floor($playerCount / 2));
+        $hardBudget = $baseBudget + $extensionBudget;
+        $passStreakLimit = min(3, max(2, (int) ceil($playerCount / 3)));
         $maxSpeechesPerPlayer = 3;
 
         if ($game->phase_step < $openingOrder->count()) {
@@ -50,7 +53,42 @@ class DayDiscussionStepRunner
             ->where('type', 'discussion')
             ->count();
 
-        if ($discussionCount >= $totalBudget) {
+        $passStreak = (int) $game->events()
+            ->where('round', $game->round)
+            ->where('phase', $game->phase->getValue())
+            ->whereIn('type', ['discussion', 'discussion_pass'])
+            ->orderByDesc('id')
+            ->limit($passStreakLimit)
+            ->get()
+            ->takeWhile(fn ($event) => $event->type === 'discussion_pass')
+            ->count();
+
+        if ($passStreak >= $passStreakLimit) {
+            $engine->transitionToPhase($game, DayVoting::class);
+
+            return true;
+        }
+
+        if ($discussionCount >= $baseBudget) {
+            $lastDiscussionEvent = $game->events()
+                ->where('round', $game->round)
+                ->where('phase', $game->phase->getValue())
+                ->where('type', 'discussion')
+                ->latest('id')
+                ->first();
+
+            $hasDirectReplyThread = ! empty($lastDiscussionEvent?->data['addressed_player_id']);
+            $looksAccusatory = str_contains(strtolower((string) ($lastDiscussionEvent?->data['message'] ?? '')), 'werewolf')
+                || str_contains(strtolower((string) ($lastDiscussionEvent?->data['message'] ?? '')), 'suspicious');
+
+            if (! $hasDirectReplyThread && ! $looksAccusatory) {
+                $engine->transitionToPhase($game, DayVoting::class);
+
+                return true;
+            }
+        }
+
+        if ($discussionCount >= $hardBudget) {
             $engine->transitionToPhase($game, DayVoting::class);
 
             return true;
@@ -83,10 +121,16 @@ class DayDiscussionStepRunner
             ->first();
 
         $lastSpeakerId = $lastDiscussion?->actor_player_id;
+        $addressedPlayerId = $lastDiscussion?->data['addressed_player_id'] ?? null;
 
-        $speaker = $eligibleSpeakers
-            ->sortBy(fn (Player $player) => (int) ($speechCounts[$player->id] ?? 0))
-            ->first(fn (Player $player) => $player->id !== $lastSpeakerId)
+        $addressedSpeaker = $addressedPlayerId
+            ? $eligibleSpeakers->first(fn (Player $player) => $player->id === $addressedPlayerId && $player->id !== $lastSpeakerId)
+            : null;
+
+        $speaker = $addressedSpeaker
+            ?? $eligibleSpeakers
+                ->sortBy(fn (Player $player) => (int) ($speechCounts[$player->id] ?? 0))
+                ->first(fn (Player $player) => $player->id !== $lastSpeakerId)
             ?? $eligibleSpeakers->first();
 
         if (! $speaker) {
@@ -95,7 +139,9 @@ class DayDiscussionStepRunner
             return true;
         }
 
-        $prompt = 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.';
+        $prompt = $addressedSpeaker
+            ? 'You were directly addressed in the previous message. Respond naturally to that point first, then add anything else useful. You may address a specific player via addressed_player_id, or pass if you genuinely have nothing to add.'
+            : 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.';
         $this->dayActionService->createDiscussionMessage($game, $speaker, $prompt, $engine);
 
         return false;
