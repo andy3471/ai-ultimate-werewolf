@@ -363,7 +363,11 @@ PROMPT,
                 } elseif ($saveEvent) {
                     $parts[] = 'No one was killed last night — the bodyguard successfully protected the werewolves\' target!';
                 } elseif ($noDeathEvent) {
-                    $parts[] = 'No one was killed during the night.';
+                    if ($round === 1) {
+                        $parts[] = 'It is the first morning. The village gathers to begin discussion.';
+                    } else {
+                        $parts[] = 'No one was killed during the night.';
+                    }
                 }
 
                 $hunterEvent = $recentEvents->firstWhere('type', 'hunter_shot');

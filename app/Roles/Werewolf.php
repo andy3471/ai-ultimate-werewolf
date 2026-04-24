@@ -9,6 +9,7 @@ use App\Events\PlayerActed;
 use App\Game\RoleExecution\RoleActionResult;
 use App\Game\RoleExecution\RoleExecutionContext;
 use App\Models\Game;
+use App\Models\Player;
 
 class Werewolf extends Role
 {
@@ -59,6 +60,26 @@ class Werewolf extends Role
     public function rulesPrompt(): string
     {
         return 'Werewolf (Werewolves team): Knows fellow werewolves. On Night 1 there is no kill. From Night 2 onward, werewolves choose a victim each night. Wins when werewolves equal or outnumber the village.';
+    }
+
+    public function secretKnowledge(Game $game, Player $player): string
+    {
+        $fellowWolves = $game->players()
+            ->where('role', GameRole::Werewolf->value)
+            ->where('id', '!=', $player->id)
+            ->get();
+
+        if ($fellowWolves->isEmpty()) {
+            return '';
+        }
+
+        $wolfList = $fellowWolves->map(function (Player $werewolf) {
+            $number = $werewolf->order + 1;
+
+            return "[{$number}] {$werewolf->name}";
+        })->implode(', ');
+
+        return "## Secret Knowledge\nYour fellow werewolf(s): {$wolfList}. Coordinate to eliminate villagers without being discovered.";
     }
 
     public function maxPerGame(): int

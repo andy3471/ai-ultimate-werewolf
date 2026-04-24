@@ -25,6 +25,11 @@ abstract class Role
         return '';
     }
 
+    public function secretKnowledge(Game $game, Player $player): string
+    {
+        return '';
+    }
+
     public function hasNightAction(): bool
     {
         return false;

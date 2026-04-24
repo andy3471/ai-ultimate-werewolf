@@ -66,6 +66,27 @@ class Seer extends Role
         return 'Seer (Village team): Investigates one player each night and learns whether they are Werewolves-aligned or Village-aligned. Wins when all werewolves are eliminated.';
     }
 
+    public function secretKnowledge(Game $game, Player $player): string
+    {
+        $investigations = $game->events()
+            ->where('actor_player_id', $player->id)
+            ->where('type', 'seer_investigate')
+            ->get();
+
+        if ($investigations->isEmpty()) {
+            return '';
+        }
+
+        $lines = ['## Your Investigation Results'];
+
+        foreach ($investigations as $event) {
+            $result = $event->data['result'] ?? 'Unknown';
+            $lines[] = "- Round {$event->round}: {$result}";
+        }
+
+        return implode("\n", $lines);
+    }
+
     public function onNightAction(RoleExecutionContext $context): RoleActionResult
     {
         $seer = $context->actor;

@@ -2,7 +2,6 @@
 
 namespace App\Ai\Context;
 
-use App\Enums\GameRole;
 use App\Models\Game;
 use App\Models\GameEvent;
 use App\Models\Player;
@@ -134,41 +133,9 @@ class GameContext
 
     protected function buildRoleKnowledge(Game $game, Player $player): string
     {
-        $knowledge = [];
+        $role = $this->roleRegistry->get($player->role);
 
-        if ($player->role === GameRole::Werewolf) {
-            $fellowWolves = $game->players()
-                ->where('role', GameRole::Werewolf->value)
-                ->where('id', '!=', $player->id)
-                ->get();
-
-            if ($fellowWolves->isNotEmpty()) {
-                $wolfList = $fellowWolves->map(function (Player $w) {
-                    $num = $w->order + 1;
-
-                    return "[{$num}] {$w->name}";
-                })->implode(', ');
-                $knowledge[] = "## Secret Knowledge\nYour fellow werewolf(s): {$wolfList}. Coordinate to eliminate villagers without being discovered.";
-            }
-        }
-
-        if ($player->role === GameRole::Seer) {
-            $investigations = $game->events()
-                ->where('actor_player_id', $player->id)
-                ->where('type', 'seer_investigate')
-                ->get();
-
-            if ($investigations->isNotEmpty()) {
-                $results = ['## Your Investigation Results'];
-                foreach ($investigations as $event) {
-                    $result = $event->data['result'] ?? 'Unknown';
-                    $results[] = "- Round {$event->round}: {$result}";
-                }
-                $knowledge[] = implode("\n", $results);
-            }
-        }
-
-        return implode("\n\n", $knowledge);
+        return trim($role->secretKnowledge($game, $player));
     }
 
     protected function buildHistory(Game $game, Player $player): string
