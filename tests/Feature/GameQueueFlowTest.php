@@ -7,7 +7,7 @@ use App\Services\GameEngine;
 use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\DayVoting;
 use App\States\GamePhase\GameOver;
-use App\States\GamePhase\NightWerewolf;
+use App\States\GamePhase\Night;
 use App\States\GameStatus\Failed;
 use App\States\GameStatus\Finished;
 use App\States\GameStatus\Running;
@@ -26,7 +26,7 @@ test('RunGame dispatches the first phase runner after bootstrap', function () {
         ->andReturnUsing(function (Game $startedGame): void {
             $startedGame->update([
                 'status' => Running::getMorphClass(),
-                'phase' => NightWerewolf::getMorphClass(),
+                'phase' => Night::getMorphClass(),
                 'round' => 1,
                 'phase_step' => 0,
             ]);
@@ -37,7 +37,7 @@ test('RunGame dispatches the first phase runner after bootstrap', function () {
     Queue::assertPushed(RunCurrentPhase::class, function (RunCurrentPhase $job) use ($game): bool {
         return $job->game->is($game)
             && $job->expectedRound === 1
-            && $job->expectedPhase === NightWerewolf::$name
+            && $job->expectedPhase === Night::$name
             && $job->expectedPhaseStep === 0;
     });
 });

@@ -4,7 +4,7 @@ namespace App\Services\GameSteps;
 
 use App\Models\Game;
 use App\Services\GameEngine;
-use App\States\GamePhase\NightWerewolf;
+use App\States\GamePhase\Night;
 
 class DuskStepRunner
 {
@@ -19,7 +19,7 @@ class DuskStepRunner
         }
 
         $game->update(['round' => $game->round + 1]);
-        $engine->transitionToPhase($game, NightWerewolf::class);
+        $engine->transitionToPhase($game, Night::class);
 
         return true;
     }

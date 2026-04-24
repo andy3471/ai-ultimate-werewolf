@@ -42,9 +42,7 @@ watch(
 
 function phaseLabel(phase: string): string {
     const map: Record<string, string> = {
-        night_werewolf: '🐺 Night - Werewolves',
-        night_seer: '🔮 Night - Seer',
-        night_bodyguard: '🛡️ Night - Bodyguard',
+        night: '🌙 Night',
         dawn: '🌅 Dawn',
         day_discussion: '💬 Discussion',
         day_voting: '🗳️ Voting',

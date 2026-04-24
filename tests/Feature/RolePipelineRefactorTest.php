@@ -6,9 +6,7 @@ use App\Models\Game;
 use App\Models\Player;
 use App\Services\GameEngine;
 use App\States\GamePhase\Dawn;
-use App\States\GamePhase\NightBodyguard;
-use App\States\GamePhase\NightSeer;
-use App\States\GamePhase\NightWerewolf;
+use App\States\GamePhase\Night;
 use App\States\GameStatus\Running;
 use Illuminate\Support\Facades\Event;
 
@@ -31,7 +29,7 @@ test('werewolf phase uses role hook and preserves event contract', function () {
 
     $game = Game::factory()->create([
         'status' => Running::getMorphClass(),
-        'phase' => NightWerewolf::getMorphClass(),
+        'phase' => Night::getMorphClass(),
         'round' => 2,
         'phase_step' => 0,
     ]);
@@ -52,16 +50,16 @@ test('werewolf phase uses role hook and preserves event contract', function () {
 
     expect($event)->not->toBeNull();
     expect($event->data)->toHaveKeys(['thinking', 'public_reasoning']);
-    expect($game->phase)->toBeInstanceOf(NightWerewolf::class);
+    expect($game->phase)->toBeInstanceOf(Night::class);
     expect($game->phase_step)->toBe(1);
 });
 
-test('night pipeline transitions from werewolf to seer after proposals resolve', function () {
+test('night pipeline transitions to dawn after final night slot resolves', function () {
     Event::fake();
 
     $game = Game::factory()->create([
         'status' => Running::getMorphClass(),
-        'phase' => NightWerewolf::getMorphClass(),
+        'phase' => Night::getMorphClass(),
         'round' => 2,
         'phase_step' => 1,
     ]);
@@ -71,7 +69,7 @@ test('night pipeline transitions from werewolf to seer after proposals resolve',
 
     $game->events()->create([
         'round' => 2,
-        'phase' => NightWerewolf::$name,
+        'phase' => Night::$name,
         'type' => 'werewolf_kill',
         'actor_player_id' => $wolf->id,
         'target_player_id' => $villager->id,
@@ -82,7 +80,7 @@ test('night pipeline transitions from werewolf to seer after proposals resolve',
     app(GameEngine::class)->runStep($game);
 
     $game->refresh();
-    expect($game->phase)->toBeInstanceOf(NightSeer::class);
+    expect($game->phase)->toBeInstanceOf(Dawn::class);
 });
 
 test('seer and bodyguard hooks preserve event contracts', function () {
@@ -90,7 +88,7 @@ test('seer and bodyguard hooks preserve event contracts', function () {
 
     $game = Game::factory()->create([
         'status' => Running::getMorphClass(),
-        'phase' => NightSeer::getMorphClass(),
+        'phase' => Night::getMorphClass(),
         'round' => 2,
         'phase_step' => 0,
     ]);
@@ -122,7 +120,8 @@ test('seer and bodyguard hooks preserve event contracts', function () {
     $engine->runStep($game);
 
     $game->refresh();
-    expect($game->phase)->toBeInstanceOf(NightBodyguard::class);
+    expect($game->phase)->toBeInstanceOf(Night::class);
+    expect($game->phase_step)->toBe(1);
 
     $seerEvent = $game->events()->where('type', 'seer_investigate')->latest('id')->first();
     expect($seerEvent)->not->toBeNull();

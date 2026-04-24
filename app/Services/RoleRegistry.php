@@ -44,17 +44,4 @@ class RoleRegistry
     {
         return $this->roles;
     }
-
-    /**
-     * Get the roles that have a night action, ordered by their phase priority.
-     *
-     * @return Role[]
-     */
-    public function nightRoles(): array
-    {
-        return collect($this->roles)
-            ->filter(fn (Role $role) => $role->nightPhase() !== null)
-            ->values()
-            ->all();
-    }
 }

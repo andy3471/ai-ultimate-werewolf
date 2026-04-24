@@ -6,6 +6,7 @@ use App\Enums\GameRole;
 use App\Models\Game;
 use App\Services\GameEngine;
 use App\Services\RoleRegistry;
+use App\States\GamePhase\Dawn;
 
 class NightRoleStepRunner
 {
@@ -13,48 +14,63 @@ class NightRoleStepRunner
         protected RoleRegistry $roleRegistry,
     ) {}
 
-    public function run(
-        Game $game,
-        GameEngine $engine,
-        GameRole $roleId,
-        string $nextPhaseClass,
-        bool $narrateNextPhase = true,
-    ): bool {
-        $role = $this->roleRegistry->get($roleId);
+    public function run(Game $game, GameEngine $engine): bool
+    {
+        $slots = [];
+        $nightRoles = [GameRole::Werewolf, GameRole::Seer, GameRole::Bodyguard];
 
-        if ($role->skipNightPhase($game)) {
-            $engine->transitionToPhase($game, $nextPhaseClass, narrate: $narrateNextPhase);
+        foreach ($nightRoles as $roleId) {
+            $role = $this->roleRegistry->get($roleId);
 
-            return true;
-        }
-
-        $actors = collect($role->nightActors($game))->values();
-        if ($actors->isEmpty()) {
-            $engine->transitionToPhase($game, $nextPhaseClass, narrate: $narrateNextPhase);
-
-            return true;
-        }
-
-        if (! $role->requiresAllActorsBeforeResolve()) {
-            if ($game->phase_step > 0) {
-                return true;
+            if ($role->skipNightPhase($game)) {
+                continue;
             }
 
-            $engine->executeRoleNightAction($game, $roleId, $actors->first());
-            $role->resolveNightPhase($game);
-            $engine->transitionToPhase($game, $nextPhaseClass, narrate: $narrateNextPhase);
+            $actors = collect($role->nightActors($game))->values();
+            if ($actors->isEmpty()) {
+                continue;
+            }
+
+            if ($role->requiresAllActorsBeforeResolve()) {
+                foreach ($actors as $actor) {
+                    $slots[] = function () use ($engine, $game, $roleId, $actor): void {
+                        $engine->executeRoleNightAction($game, $roleId, $actor);
+                    };
+                }
+
+                $slots[] = function () use ($role, $game): void {
+                    $role->resolveNightPhase($game);
+                };
+
+                continue;
+            }
+
+            $slots[] = function () use ($engine, $game, $roleId, $role, $actors): void {
+                $engine->executeRoleNightAction($game, $roleId, $actors->first());
+                $role->resolveNightPhase($game);
+            };
+        }
+
+        if ($slots === []) {
+            $engine->transitionToPhase($game, Dawn::class, narrate: false);
 
             return true;
         }
 
-        if ($game->phase_step < $actors->count()) {
-            $engine->executeRoleNightAction($game, $roleId, $actors->get($game->phase_step));
+        $step = (int) $game->phase_step;
+        if ($step < count($slots)) {
+            $slots[$step]();
+
+            if ($step === count($slots) - 1) {
+                $engine->transitionToPhase($game, Dawn::class, narrate: false);
+
+                return true;
+            }
 
             return false;
         }
 
-        $role->resolveNightPhase($game);
-        $engine->transitionToPhase($game, $nextPhaseClass, narrate: $narrateNextPhase);
+        $engine->transitionToPhase($game, Dawn::class, narrate: false);
 
         return true;
     }

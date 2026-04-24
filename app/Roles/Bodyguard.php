@@ -2,13 +2,14 @@
 
 namespace App\Roles;
 
+use App\Ai\Agents\NightActionAgent;
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Events\PlayerActed;
 use App\Game\RoleExecution\RoleActionResult;
 use App\Game\RoleExecution\RoleExecutionContext;
 use App\Models\Game;
-use App\Services\RoleActions\NightRoleActionService;
-use App\States\GamePhase\NightBodyguard;
+use App\Models\Player;
 
 class Bodyguard extends Role
 {
@@ -27,9 +28,9 @@ class Bodyguard extends Role
         return GameTeam::Village;
     }
 
-    public function nightPhase(): string
+    public function hasNightAction(): bool
     {
-        return NightBodyguard::class;
+        return true;
     }
 
     public function nightActionPrompt(): string
@@ -55,10 +56,61 @@ class Bodyguard extends Role
 
     public function onNightAction(RoleExecutionContext $context): RoleActionResult
     {
-        app(NightRoleActionService::class)->processBodyguard(
-            $context->game,
-            $context->game->phase->getValue(),
+        $bodyguard = $context->actor;
+        if (! $bodyguard) {
+            return RoleActionResult::continue();
+        }
+
+        $lastProtection = $context->game->events()
+            ->where('type', 'bodyguard_protect')
+            ->where('actor_player_id', $bodyguard->id)
+            ->where('round', $context->game->round - 1)
+            ->first();
+
+        $lastProtectedId = $lastProtection?->target_player_id;
+        $lastProtectedName = $lastProtectedId
+            ? Player::find($lastProtectedId)?->name ?? 'Unknown'
+            : null;
+
+        $gameContext = app(\App\Ai\Context\GameContext::class)->buildForPlayer($context->game, $bodyguard);
+        if ($lastProtectedName) {
+            $gameContext .= "\n\n## Bodyguard Restriction\nYou protected **{$lastProtectedName}** (ID: {$lastProtectedId}) last night. You CANNOT protect them again tonight. You must choose a different player.";
+        }
+
+        $result = NightActionAgent::make(
+            player: $bodyguard,
+            game: $context->game,
+            context: $gameContext,
+            actionPrompt: $this->nightActionPrompt(),
+        )->prompt(
+            'Choose a player to protect tonight.',
+            provider: $bodyguard->provider,
+            model: $bodyguard->model,
         );
+
+        $targetId = $context->engine->resolveTargetId($result['target_id'], $context->game);
+
+        if ($targetId === $lastProtectedId) {
+            $targetId = $context->game->alivePlayers()
+                ->where('id', '!=', $lastProtectedId)
+                ->inRandomOrder()
+                ->first()?->id;
+        }
+
+        $event = $context->game->events()->create([
+            'round' => $context->game->round,
+            'phase' => $context->game->phase->getValue(),
+            'type' => 'bodyguard_protect',
+            'actor_player_id' => $bodyguard->id,
+            'target_player_id' => $targetId,
+            'data' => [
+                'thinking' => $result['thinking'] ?? '',
+                'public_reasoning' => $result['public_reasoning'] ?? '',
+            ],
+            'is_public' => false,
+        ]);
+
+        broadcast(new PlayerActed($context->game->id, $event->toData()));
 
         return RoleActionResult::continue();
     }

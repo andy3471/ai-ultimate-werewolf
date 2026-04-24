@@ -136,9 +136,7 @@ function pollUntilStarted(attempts = 0) {
 function phaseLabel(p: string): string {
     const map: Record<string, string> = {
         lobby: 'Waiting for game to start...',
-        night_werewolf: 'The werewolves choose their victim.',
-        night_seer: 'The Seer investigates a player.',
-        night_bodyguard: 'The Bodyguard chooses a player to protect.',
+        night: 'Night actions are in progress.',
         dawn: 'Night actions are resolved.',
         day_discussion: 'Players discuss and share suspicions.',
         day_voting: 'Players vote to eliminate a suspect.',

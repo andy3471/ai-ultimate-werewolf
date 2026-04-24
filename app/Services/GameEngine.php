@@ -170,27 +170,6 @@ class GameEngine
         $this->eliminationService->giveDyingSpeech($game, $player, $this);
     }
 
-    protected function handleHunterRevenge(Game $game, Player $deadPlayer): void
-    {
-        $this->processHunterRevengeShot($game, $deadPlayer);
-
-        $shotEvent = $game->events()
-            ->where('round', $game->round)
-            ->where('phase', $game->phase->getValue())
-            ->where('type', 'hunter_shot')
-            ->latest('id')
-            ->first();
-
-        if (! $shotEvent?->target_player_id) {
-            return;
-        }
-
-        $shotPlayer = Player::find($shotEvent->target_player_id);
-        if ($shotPlayer) {
-            $this->giveDyingSpeech($game, $shotPlayer);
-        }
-    }
-
     public function checkWinCondition(Game $game, ?Player $eliminatedByVillage = null): bool
     {
         $resolved = $this->winConditionResolver->resolve($game, $eliminatedByVillage);

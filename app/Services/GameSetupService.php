@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Enums\GameRole;
 use App\Models\Game;
-use App\States\GamePhase\NightWerewolf;
+use App\States\GamePhase\Night;
 use App\States\GameStatus\Running;
 
 class GameSetupService
@@ -36,7 +36,7 @@ class GameSetupService
 
         $game->status->transitionTo(Running::class);
         $game->update(['round' => 1, 'phase_step' => 0, 'role_distribution' => $roleDistribution]);
-        $game->phase->transitionTo(NightWerewolf::class);
+        $game->phase->transitionTo(Night::class);
     }
 
     /**

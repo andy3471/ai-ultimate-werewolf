@@ -2,18 +2,18 @@
 
 namespace App\States\GamePhase;
 
-class NightSeer extends GamePhaseState
+class Night extends GamePhaseState
 {
-    public static $name = 'night_seer';
+    public static $name = 'night';
 
     public function label(): string
     {
-        return 'Night - Seer';
+        return 'Night';
     }
 
     public function description(): string
     {
-        return 'The Seer investigates a player.';
+        return 'Night actions are being resolved.';
     }
 
     public function isNight(): bool

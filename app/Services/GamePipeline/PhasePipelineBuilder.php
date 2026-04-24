@@ -2,7 +2,6 @@
 
 namespace App\Services\GamePipeline;
 
-use App\Enums\GameRole;
 use App\Models\Game;
 use App\Services\GameEngine;
 use App\Services\GameSteps\DawnStepRunner;
@@ -14,9 +13,7 @@ use App\States\GamePhase\Dawn;
 use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\DayVoting;
 use App\States\GamePhase\Dusk;
-use App\States\GamePhase\NightBodyguard;
-use App\States\GamePhase\NightSeer;
-use App\States\GamePhase\NightWerewolf;
+use App\States\GamePhase\Night;
 
 class PhasePipelineBuilder
 {
@@ -31,9 +28,7 @@ class PhasePipelineBuilder
     public function build(Game $game, GameEngine $engine): PhasePipeline
     {
         return new PhasePipeline([
-            new NightRolePhaseHandler(NightWerewolf::class, GameRole::Werewolf, NightSeer::class, $this->nightRoleStepRunner, $engine),
-            new NightRolePhaseHandler(NightSeer::class, GameRole::Seer, NightBodyguard::class, $this->nightRoleStepRunner, $engine),
-            new NightRolePhaseHandler(NightBodyguard::class, GameRole::Bodyguard, Dawn::class, $this->nightRoleStepRunner, $engine, narrateNextPhase: false),
+            new RunnerDelegatingPhaseHandler(Night::class, $this->nightRoleStepRunner, $engine),
             new RunnerDelegatingPhaseHandler(Dawn::class, $this->dawnStepRunner, $engine),
             new RunnerDelegatingPhaseHandler(DayDiscussion::class, $this->dayDiscussionStepRunner, $engine),
             new RunnerDelegatingPhaseHandler(DayVoting::class, $this->dayVotingStepRunner, $engine),

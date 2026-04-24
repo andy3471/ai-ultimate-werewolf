@@ -197,7 +197,7 @@ class VoiceService
      * Phases that should receive narration.
      */
     protected const NARRATED_PHASES = [
-        'night_werewolf',
+        'night',
         'dawn',
         'day_discussion',
         'day_voting',
@@ -324,7 +324,7 @@ PROMPT,
         $parts = [];
 
         switch ($phase) {
-            case 'night_werewolf':
+            case 'night':
                 if ($round === 1) {
                     $playerCount = $game->players()->count();
                     $parts[] = "Announce: It is Night 1. {$playerCount} players have gathered in the village.";

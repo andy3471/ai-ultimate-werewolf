@@ -20,14 +20,9 @@ abstract class Role
 
     abstract public function baseInstructions(): string;
 
-    /**
-     * The GamePhase state class this role acts in at night, or null if no night action.
-     *
-     * @return class-string|null
-     */
-    public function nightPhase(): ?string
+    public function hasNightAction(): bool
     {
-        return null;
+        return false;
     }
 
     /**
