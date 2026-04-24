@@ -1,19 +1,6 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 
-export interface GameEventData {
-    id: string;
-    round: number;
-    phase: string;
-    type: string;
-    actor_player_id: string | null;
-    target_player_id: string | null;
-    message: string | null;
-    thinking: string | null;
-    public_reasoning: string | null;
-    is_public: boolean;
-    created_at: string;
-    audio_url: string | null;
-}
+export type GameEventData = App.Data.GameEventData;
 
 export interface PhaseChangedEvent {
     gameId: string;

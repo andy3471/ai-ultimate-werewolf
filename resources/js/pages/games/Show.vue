@@ -123,7 +123,7 @@ function pollUntilStarted(attempts = 0) {
             const data = await res.json();
             if (data.status !== 'pending') {
                 // Game has started — reload via Inertia to get fresh props
-                router.reload({ preserveScroll: true });
+                router.reload();
                 return;
             }
         } catch {

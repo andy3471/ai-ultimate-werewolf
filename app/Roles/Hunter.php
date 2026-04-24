@@ -40,4 +40,9 @@ class Hunter extends Role
         - The village uses a nomination → trial → vote system. Participate actively in discussions.
         INSTRUCTIONS;
     }
+
+    public function rulesPrompt(): string
+    {
+        return 'Hunter (Village team): If eliminated (day or night), immediately shoots one player, eliminating them as well. Wins when all werewolves are eliminated.';
+    }
 }

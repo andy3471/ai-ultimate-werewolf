@@ -61,6 +61,11 @@ class Seer extends Role
         INSTRUCTIONS;
     }
 
+    public function rulesPrompt(): string
+    {
+        return 'Seer (Village team): Investigates one player each night and learns whether they are Werewolves-aligned or Village-aligned. Wins when all werewolves are eliminated.';
+    }
+
     public function onNightAction(RoleExecutionContext $context): RoleActionResult
     {
         $seer = $context->actor;

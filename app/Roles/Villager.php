@@ -33,6 +33,11 @@ class Villager extends Role
         INSTRUCTIONS;
     }
 
+    public function rulesPrompt(): string
+    {
+        return 'Villager (Village team): No special night ability. Uses discussion, nominations, and trial voting to identify and eliminate werewolves. Wins when all werewolves are eliminated.';
+    }
+
     public function maxPerGame(): int
     {
         return PHP_INT_MAX;

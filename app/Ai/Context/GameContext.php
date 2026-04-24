@@ -22,6 +22,9 @@ class GameContext
     {
         $sections = [];
         $sections[] = $this->buildGameOverview($game, $player);
+        $sections[] = $this->buildRulesReference($game);
+        $sections[] = $this->buildRolesInPlay($game);
+        $sections[] = $this->buildRoleReference($game);
         $sections[] = $this->buildPlayerList($game, $player);
         $sections[] = $this->buildRoleKnowledge($game, $player);
         $sections[] = $this->buildVotingMemory($game, $player);
@@ -36,25 +39,75 @@ class GameContext
         $totalPlayers = $game->players()->count();
         $deadPlayers = $totalPlayers - $alivePlayers;
 
-        $roleDistribution = $game->role_distribution;
-        $rolesLine = '';
-        if ($roleDistribution) {
-            $parts = [];
-            foreach ($roleDistribution as $roleName => $count) {
-                $parts[] = "{$count}x {$roleName}";
-            }
-            $rolesLine = "\n- Roles in this game: ".implode(', ', $parts);
-        }
-
         return <<<CONTEXT
         ## Game State
         - Round: {$game->round}
         - Current Phase: {$game->phase->label()}
+        - Rule Reminder: There is no werewolf kill on Night 1. Werewolf kills begin on Night 2.
         - Players Alive: {$alivePlayers} / {$totalPlayers}
-        - Players Dead: {$deadPlayers}{$rolesLine}
+        - Players Dead: {$deadPlayers}
         - Your Name: {$player->name}
         - Your Role: {$player->role->value}
         CONTEXT;
+    }
+
+    protected function buildRulesReference(Game $game): string
+    {
+        return <<<'RULES'
+        ## Game Rules
+        - Objective: Village wins by eliminating all werewolves. Werewolves win when they equal or outnumber the village.
+        - Night order: Werewolves -> Seer -> Bodyguard, then Dawn resolves outcomes.
+        - Night 1 exception: Werewolves only identify each other; there is NO werewolf kill on Night 1.
+        - Bodyguard rule: The Bodyguard cannot protect the same player on consecutive nights.
+        - Day flow: Discussion -> nominations -> top nominee on trial -> defense speech -> YES/NO vote.
+        - Voting rule: A simple majority of YES votes eliminates the accused; otherwise no elimination occurs.
+        - Public information: Eliminated players are dead and their role is confirmed publicly.
+        RULES;
+    }
+
+    protected function buildRolesInPlay(Game $game): string
+    {
+        $roleDistribution = $game->role_distribution;
+        if (! is_array($roleDistribution) || $roleDistribution === []) {
+            return '';
+        }
+
+        $lines = ['## Roles In Play'];
+
+        foreach ($roleDistribution as $roleName => $count) {
+            $lines[] = "- {$count}x {$roleName}";
+        }
+
+        return implode("\n", $lines);
+    }
+
+    protected function buildRoleReference(Game $game): string
+    {
+        $roleDistribution = $game->role_distribution;
+        if (! is_array($roleDistribution) || $roleDistribution === []) {
+            return '';
+        }
+
+        $rolesByName = collect($this->roleRegistry->all())
+            ->keyBy(fn ($role) => $role->name());
+
+        $lines = ['## Role Reference'];
+
+        foreach ($roleDistribution as $roleName => $count) {
+            $role = $rolesByName->get($roleName);
+            if (! $role) {
+                continue;
+            }
+
+            $prompt = trim($role->rulesPrompt());
+            if ($prompt === '') {
+                continue;
+            }
+
+            $lines[] = "- {$roleName}: {$prompt}";
+        }
+
+        return count($lines) > 1 ? implode("\n", $lines) : '';
     }
 
     protected function buildPlayerList(Game $game, Player $player): string

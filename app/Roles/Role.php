@@ -20,6 +20,11 @@ abstract class Role
 
     abstract public function baseInstructions(): string;
 
+    public function rulesPrompt(): string
+    {
+        return '';
+    }
+
     public function hasNightAction(): bool
     {
         return false;

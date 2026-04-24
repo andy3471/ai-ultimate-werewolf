@@ -43,4 +43,9 @@ class Tanner extends Role
         - The village uses a nomination → trial → vote system. Getting nominated is step one.
         INSTRUCTIONS;
     }
+
+    public function rulesPrompt(): string
+    {
+        return 'Tanner (Neutral team): Wins only if eliminated by village vote during the day. If killed at night or still alive when another team wins, Tanner loses.';
+    }
 }

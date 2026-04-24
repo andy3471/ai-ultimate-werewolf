@@ -54,6 +54,11 @@ class Bodyguard extends Role
         INSTRUCTIONS;
     }
 
+    public function rulesPrompt(): string
+    {
+        return 'Bodyguard (Village team): Protects one player each night from werewolf kill. Cannot protect the same player on consecutive nights (self-protection allowed). Wins when all werewolves are eliminated.';
+    }
+
     public function onNightAction(RoleExecutionContext $context): RoleActionResult
     {
         $bodyguard = $context->actor;
