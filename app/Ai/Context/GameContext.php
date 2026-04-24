@@ -21,17 +21,10 @@ class GameContext
     public function buildForPlayer(Game $game, Player $player): string
     {
         $sections = [];
-
-        // Game overview
         $sections[] = $this->buildGameOverview($game, $player);
-
-        // Player list
         $sections[] = $this->buildPlayerList($game, $player);
-
-        // Role-specific knowledge
         $sections[] = $this->buildRoleKnowledge($game, $player);
-
-        // Game history (what this player can see)
+        $sections[] = $this->buildVotingMemory($game, $player);
         $sections[] = $this->buildHistory($game, $player);
 
         return implode("\n\n", array_filter($sections));
@@ -43,7 +36,6 @@ class GameContext
         $totalPlayers = $game->players()->count();
         $deadPlayers = $totalPlayers - $alivePlayers;
 
-        // Role composition (publicly known)
         $roleDistribution = $game->role_distribution;
         $rolesLine = '';
         if ($roleDistribution) {
@@ -91,7 +83,6 @@ class GameContext
     {
         $knowledge = [];
 
-        // Werewolves know each other
         if ($player->role === GameRole::Werewolf) {
             $fellowWolves = $game->players()
                 ->where('role', GameRole::Werewolf->value)
@@ -108,7 +99,6 @@ class GameContext
             }
         }
 
-        // Seer's investigation results
         if ($player->role === GameRole::Seer) {
             $investigations = $game->events()
                 ->where('actor_player_id', $player->id)
@@ -160,6 +150,72 @@ class GameContext
         return implode("\n", $lines);
     }
 
+    protected function buildVotingMemory(Game $game, Player $player): string
+    {
+        $visibleEvents = $game->events()
+            ->where(function ($query) use ($player) {
+                $query->where('is_public', true)
+                    ->orWhere('actor_player_id', $player->id);
+            })
+            ->whereIn('type', ['nomination', 'nomination_result', 'vote', 'vote_tally', 'elimination', 'no_elimination'])
+            ->orderBy('id')
+            ->get();
+
+        if ($visibleEvents->isEmpty()) {
+            return '';
+        }
+
+        $playersById = $game->players->keyBy('id');
+        $roundSummaries = [];
+
+        foreach ($visibleEvents->groupBy('round') as $round => $events) {
+            $nominations = $events->where('type', 'nomination');
+            $votes = $events->where('type', 'vote');
+            $outcomeEvent = $events->first(function (GameEvent $event) {
+                return in_array($event->type, ['elimination', 'no_elimination'], true);
+            });
+
+            $lineParts = [];
+
+            if ($nominations->isNotEmpty()) {
+                $topNomineeId = $nominations
+                    ->pluck('target_player_id')
+                    ->filter()
+                    ->countBy()
+                    ->sortDesc()
+                    ->keys()
+                    ->first();
+
+                if ($topNomineeId) {
+                    $topNomineeName = $playersById[$topNomineeId]->name ?? 'Unknown';
+                    $lineParts[] = "top nomination: {$topNomineeName}";
+                }
+            }
+
+            if ($votes->isNotEmpty()) {
+                $yesVotes = $votes->where('data.vote', 'yes')->count();
+                $noVotes = $votes->where('data.vote', 'no')->count();
+                $lineParts[] = "trial votes yes/no: {$yesVotes}/{$noVotes}";
+            }
+
+            if ($outcomeEvent) {
+                $lineParts[] = $outcomeEvent->type === 'elimination'
+                    ? 'outcome: elimination passed'
+                    : 'outcome: no elimination';
+            }
+
+            if (! empty($lineParts)) {
+                $roundSummaries[] = "- Round {$round}: ".implode('; ', $lineParts).'.';
+            }
+        }
+
+        if (empty($roundSummaries)) {
+            return '';
+        }
+
+        return "## Past Voting Record\n".implode("\n", $roundSummaries);
+    }
+
     protected function formatEvent(GameEvent $event, Player $player): ?string
     {
         return match ($event->type) {
@@ -173,7 +229,7 @@ class GameContext
             'elimination' => $event->data['message'] ?? null,
             'bodyguard_save' => $event->data['message'] ?? null,
             'hunter_shot' => $event->data['message'] ?? null,
-            'narration' => null, // Narrator flavour text — skip for AI context
+            'narration' => null,
             'no_death' => $event->data['message'] ?? null,
             'vote_tally' => $event->data['message'] ?? null,
             'vote_tie' => $event->data['message'] ?? null,
@@ -209,14 +265,12 @@ class GameContext
         $actorName = $actor ? $actor->name : 'Unknown';
         $reasoning = $event->data['public_reasoning'] ?? '';
 
-        // Trial vote (yes/no)
         if (isset($event->data['vote'])) {
             $vote = $event->data['vote'] === 'yes' ? 'ELIMINATE' : 'SPARE';
 
             return "**{$actorName}** voted to **{$vote}**".($reasoning ? ": \"{$reasoning}\"" : '');
         }
 
-        // Legacy direct vote
         $target = $event->target;
         $targetName = $target ? $target->name : 'Unknown';
 

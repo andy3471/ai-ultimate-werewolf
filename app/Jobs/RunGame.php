@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class RunGame implements ShouldBeUnique, ShouldQueue
 {
@@ -39,13 +40,23 @@ class RunGame implements ShouldBeUnique, ShouldQueue
 
     public function handle(GameEngine $engine): void
     {
+        Log::info('run_game_job_start', ['game_id' => $this->game->id]);
         $engine->startGame($this->game);
 
         $game = $this->game->fresh();
 
         if (! $game) {
+            Log::warning('run_game_job_missing_after_start', ['game_id' => $this->game->id]);
+
             return;
         }
+
+        Log::info('run_game_job_dispatch_phase_runner', [
+            'game_id' => $game->id,
+            'round' => (int) $game->round,
+            'phase' => $game->phase->getValue(),
+            'phase_step' => (int) $game->phase_step,
+        ]);
 
         RunCurrentPhase::dispatch(
             $game,

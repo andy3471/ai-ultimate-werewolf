@@ -4,11 +4,16 @@ namespace App\Services\GameSteps;
 
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\DayActionService;
 use App\Services\GameEngine;
 use App\States\GamePhase\DayVoting;
 
 class DayDiscussionStepRunner
 {
+    public function __construct(
+        protected DayActionService $dayActionService,
+    ) {}
+
     public function run(Game $game, GameEngine $engine): bool
     {
         $alivePlayers = $game->alivePlayers()->get()->values();
@@ -20,7 +25,7 @@ class DayDiscussionStepRunner
             return true;
         }
 
-        $plan = $engine->getOrCreateDiscussionPlan($game, $alivePlayers);
+        $plan = $this->dayActionService->getOrCreateDiscussionPlan($game, $alivePlayers);
         $openingOrder = collect($plan['opening_order'] ?? [])->values();
         $totalBudget = (int) ($plan['total_budget'] ?? ($playerCount * 2));
         $maxSpeechesPerPlayer = 3;
@@ -33,7 +38,7 @@ class DayDiscussionStepRunner
                     ? 'React to what happened last night. If someone died and made a claim, engage with it — take a clear position. Challenge someone or defend someone. Be direct and opinionated, not vague. You may address a specific player by setting addressed_player_id to their player number.'
                     : 'Share your thoughts for this round. Reflect on what happened — who acted suspiciously, how people voted, and any patterns you noticed. Be direct. You may address a specific player by setting addressed_player_id to their player number.';
 
-                $engine->createDiscussionMessage($game, $player, $prompt);
+                $this->dayActionService->createDiscussionMessage($game, $player, $prompt, $engine);
             }
 
             return false;
@@ -91,7 +96,7 @@ class DayDiscussionStepRunner
         }
 
         $prompt = 'Continue the discussion. You may respond to what others have said, raise new points, ask someone a question (set addressed_player_id), or pass if you have nothing to add.';
-        $engine->createDiscussionMessage($game, $speaker, $prompt);
+        $this->dayActionService->createDiscussionMessage($game, $speaker, $prompt, $engine);
 
         return false;
     }

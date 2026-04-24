@@ -3,24 +3,7 @@ import GameLayout from '@/layouts/GameLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { create, show } from '@/actions/App/Http/Controllers/GameController';
 
-interface PlayerData {
-    id: string;
-    name: string;
-    provider: string;
-    model: string;
-    role: string | null;
-    is_alive: boolean;
-}
-
-interface GameData {
-    id: string;
-    status: string;
-    phase: string;
-    round: number;
-    winner: string | null;
-    players: PlayerData[];
-    created_at: string;
-}
+type GameData = App.Data.GameData;
 
 defineProps<{
     games: GameData[];

@@ -8,6 +8,7 @@ use App\States\GamePhase\DayDiscussion;
 use App\States\GamePhase\DayVoting;
 use App\States\GamePhase\GameOver;
 use App\States\GamePhase\NightWerewolf;
+use App\States\GameStatus\Failed;
 use App\States\GameStatus\Finished;
 use App\States\GameStatus\Running;
 use Illuminate\Support\Carbon;
@@ -117,4 +118,28 @@ test('RunCurrentPhase no-ops when game is already finished', function () {
     (new RunCurrentPhase($game, 4, GameOver::$name, 0))->handle($engine);
 
     Queue::assertNothingPushed();
+});
+
+test('RunCurrentPhase marks game as failed when the job fails', function () {
+    $game = Game::factory()->create([
+        'status' => Running::getMorphClass(),
+        'phase' => DayDiscussion::getMorphClass(),
+        'round' => 3,
+        'phase_step' => 1,
+    ]);
+
+    $job = new RunCurrentPhase($game, 3, DayDiscussion::$name, 1);
+    $job->failed(new RuntimeException('Simulated job failure'));
+
+    $game->refresh();
+
+    expect($game->status)->toBeInstanceOf(Failed::class);
+
+    $failureEvent = $game->events()
+        ->where('type', 'game_failed')
+        ->latest('id')
+        ->first();
+
+    expect($failureEvent)->not->toBeNull();
+    expect($failureEvent->phase)->toBe(DayDiscussion::$name);
 });

@@ -4,11 +4,18 @@ namespace App\Services\GameSteps;
 
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\DayActionService;
+use App\Services\EliminationService;
 use App\Services\GameEngine;
 use App\States\GamePhase\Dusk;
 
 class DayVotingStepRunner
 {
+    public function __construct(
+        protected DayActionService $dayActionService,
+        protected EliminationService $eliminationService,
+    ) {}
+
     public function run(Game $game, GameEngine $engine): bool
     {
         $alivePlayers = $game->alivePlayers()->get()->values();
@@ -24,14 +31,14 @@ class DayVotingStepRunner
         if ($game->phase_step < $nominationCutoff) {
             $player = $alivePlayers->get($game->phase_step);
             if ($player) {
-                $engine->createNomination($game, $player);
+                $this->dayActionService->createNomination($game, $player, $engine);
             }
 
             return false;
         }
 
         if ($game->phase_step === $nominationCutoff) {
-            $accused = $engine->createNominationResult($game, $alivePlayers);
+            $accused = $this->dayActionService->createNominationResult($game, $alivePlayers);
             if (! $accused) {
                 $engine->transitionToPhase($game, Dusk::class);
 
@@ -57,7 +64,7 @@ class DayVotingStepRunner
         }
 
         if ($game->phase_step === $nominationCutoff + 1) {
-            $engine->createDefenseSpeech($game, $accused);
+            $this->dayActionService->createDefenseSpeech($game, $accused, $engine);
 
             return false;
         }
@@ -71,14 +78,14 @@ class DayVotingStepRunner
         if ($game->phase_step >= $voteStart && $game->phase_step < $voteEnd) {
             $voter = $voters->get($game->phase_step - $voteStart);
             if ($voter) {
-                $engine->createTrialVote($game, $voter, $accused);
+                $this->dayActionService->createTrialVote($game, $voter, $accused, $engine);
             }
 
             return false;
         }
 
         if ($game->phase_step === $voteEnd) {
-            $outcome = $engine->createTrialOutcome($game, $accused);
+            $outcome = $this->dayActionService->createTrialOutcome($game, $accused, $engine);
             if (($outcome['eliminated_id'] ?? null) !== null) {
                 return false;
             }
@@ -100,13 +107,13 @@ class DayVotingStepRunner
         $postOutcomeStep = $voteEnd + 1;
 
         if ($eliminatedPlayer && $game->phase_step === $postOutcomeStep) {
-            $engine->giveDyingSpeech($game, $eliminatedPlayer);
+            $this->eliminationService->giveDyingSpeech($game, $eliminatedPlayer, $engine);
 
             return false;
         }
 
         if ($eliminatedPlayer && $game->phase_step === $postOutcomeStep + 1) {
-            $engine->processHunterRevengeShot($game, $eliminatedPlayer);
+            $this->eliminationService->processHunterRevengeShot($game, $eliminatedPlayer, $engine);
 
             return false;
         }
@@ -122,7 +129,7 @@ class DayVotingStepRunner
             if ($shotEvent && $shotEvent->target_player_id) {
                 $shotPlayer = Player::find($shotEvent->target_player_id);
                 if ($shotPlayer) {
-                    $engine->giveDyingSpeech($game, $shotPlayer);
+                    $this->eliminationService->giveDyingSpeech($game, $shotPlayer, $engine);
                 }
             }
 

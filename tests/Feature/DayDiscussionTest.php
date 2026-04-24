@@ -180,6 +180,61 @@ test('dead player roles appear as confirmed facts in game context', function () 
     expect($context)->toContain('Dead players\' roles are publicly revealed and confirmed.');
 });
 
+test('game context includes explicit past voting record summary', function () {
+    $game = createGameInDiscussion(5);
+
+    $accused = $game->players()->where('order', 0)->first();
+    $voterA = $game->players()->where('order', 1)->first();
+    $voterB = $game->players()->where('order', 2)->first();
+
+    $game->events()->create([
+        'round' => 1,
+        'phase' => 'day_voting',
+        'type' => 'nomination',
+        'actor_player_id' => $voterA->id,
+        'target_player_id' => $accused->id,
+        'data' => ['public_reasoning' => 'suspicious'],
+        'is_public' => true,
+    ]);
+
+    $game->events()->create([
+        'round' => 1,
+        'phase' => 'day_voting',
+        'type' => 'vote',
+        'actor_player_id' => $voterA->id,
+        'target_player_id' => $accused->id,
+        'data' => ['vote' => 'yes'],
+        'is_public' => true,
+    ]);
+
+    $game->events()->create([
+        'round' => 1,
+        'phase' => 'day_voting',
+        'type' => 'vote',
+        'actor_player_id' => $voterB->id,
+        'target_player_id' => null,
+        'data' => ['vote' => 'no'],
+        'is_public' => true,
+    ]);
+
+    $game->events()->create([
+        'round' => 1,
+        'phase' => 'day_voting',
+        'type' => 'no_elimination',
+        'target_player_id' => $accused->id,
+        'data' => ['message' => 'No elimination.'],
+        'is_public' => true,
+    ]);
+
+    $viewer = $game->players()->where('order', 3)->first();
+    $context = app(\App\Ai\Context\GameContext::class)->buildForPlayer($game->fresh(['players']), $viewer);
+
+    expect($context)->toContain('## Past Voting Record');
+    expect($context)->toContain('Round 1');
+    expect($context)->toContain('trial votes yes/no: 1/1');
+    expect($context)->toContain('outcome: no elimination');
+});
+
 test('RunGame job implements ShouldBeUnique', function () {
     $game = Game::factory()->create();
     $job = new RunGame($game);

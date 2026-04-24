@@ -10,44 +10,9 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, ref, onMounted } from 'vue';
 import { start } from '@/actions/App/Http/Controllers/GameController';
 
-interface PlayerData {
-    id: string;
-    name: string;
-    provider: string;
-    model: string;
-    role: string | null;
-    is_alive: boolean;
-    personality: string;
-    order: number;
-}
-
-interface GameEventData {
-    id: string;
-    round: number;
-    phase: string;
-    type: string;
-    actor_player_id: string | null;
-    target_player_id: string | null;
-    message: string | null;
-    thinking: string | null;
-    public_reasoning: string | null;
-    is_public: boolean;
-    created_at: string;
-    audio_url?: string | null;
-}
-
-interface GameData {
-    id: string;
-    userId: string;
-    status: string;
-    phase: string;
-    round: number;
-    winner: string | null;
-    role_distribution: Record<string, number> | null;
-    players: PlayerData[];
-    events: GameEventData[];
-    created_at: string;
-}
+type GameData = App.Data.GameData;
+type GameEventData = App.Data.GameEventData;
+type PlayerData = App.Data.PlayerData;
 
 const props = defineProps<{
     game: GameData;

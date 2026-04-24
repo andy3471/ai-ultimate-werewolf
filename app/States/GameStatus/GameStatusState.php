@@ -14,7 +14,9 @@ abstract class GameStatusState extends State
         return parent::config()
             ->default(Pending::class)
             ->allowTransition(Pending::class, Running::class)
-            ->allowTransition(Running::class, Finished::class);
+            ->allowTransition(Pending::class, Failed::class)
+            ->allowTransition(Running::class, Finished::class)
+            ->allowTransition(Running::class, Failed::class);
     }
 
     public function getValue(): string
