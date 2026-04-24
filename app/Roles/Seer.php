@@ -4,8 +4,11 @@ namespace App\Roles;
 
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Game\RoleExecution\RoleActionResult;
+use App\Game\RoleExecution\RoleExecutionContext;
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\RoleActions\NightRoleActionService;
 use App\States\GamePhase\NightSeer;
 
 class Seer extends Role
@@ -55,5 +58,15 @@ class Seer extends Role
         or keep it secret to avoid being targeted by the werewolves. Balance information sharing with self-preservation.
         The village uses a nomination → trial → vote system. Help guide nominations toward confirmed werewolves.
         INSTRUCTIONS;
+    }
+
+    public function onNightAction(RoleExecutionContext $context): RoleActionResult
+    {
+        app(NightRoleActionService::class)->processSeer(
+            $context->game,
+            $context->game->phase->getValue(),
+        );
+
+        return RoleActionResult::continue();
     }
 }

@@ -4,6 +4,9 @@ namespace App\Roles;
 
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Game\RoleExecution\RoleActionResult;
+use App\Game\RoleExecution\RoleExecutionContext;
+use App\Services\RoleActions\NightRoleActionService;
 use App\States\GamePhase\NightBodyguard;
 
 class Bodyguard extends Role
@@ -47,5 +50,15 @@ class Bodyguard extends Role
         During the day, be careful about revealing your role — if the werewolves know who you are, they may try to eliminate you.
         Use your protection wisely: protect players who seem valuable to the village (like a suspected Seer).
         INSTRUCTIONS;
+    }
+
+    public function onNightAction(RoleExecutionContext $context): RoleActionResult
+    {
+        app(NightRoleActionService::class)->processBodyguard(
+            $context->game,
+            $context->game->phase->getValue(),
+        );
+
+        return RoleActionResult::continue();
     }
 }

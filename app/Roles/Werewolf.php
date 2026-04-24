@@ -4,6 +4,9 @@ namespace App\Roles;
 
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Game\RoleExecution\RoleActionResult;
+use App\Game\RoleExecution\RoleExecutionContext;
+use App\Services\RoleActions\NightRoleActionService;
 use App\States\GamePhase\NightWerewolf;
 
 class Werewolf extends Role
@@ -53,5 +56,20 @@ class Werewolf extends Role
     public function maxPerGame(): int
     {
         return 2;
+    }
+
+    public function onNightAction(RoleExecutionContext $context): RoleActionResult
+    {
+        if (! $context->actor) {
+            return RoleActionResult::continue();
+        }
+
+        app(NightRoleActionService::class)->processWerewolfProposal(
+            $context->game,
+            $context->actor,
+            $context->game->phase->getValue(),
+        );
+
+        return RoleActionResult::continue();
     }
 }

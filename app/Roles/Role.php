@@ -4,6 +4,9 @@ namespace App\Roles;
 
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
+use App\Game\RoleExecution\RoleActionResult;
+use App\Game\RoleExecution\RoleExecutionContext;
+use App\Game\RoleExecution\ValidationResult;
 use App\Models\Game;
 use App\Models\Player;
 
@@ -50,5 +53,25 @@ abstract class Role
     public function maxPerGame(): int
     {
         return 1;
+    }
+
+    public function onNightAction(RoleExecutionContext $context): RoleActionResult
+    {
+        return RoleActionResult::continue();
+    }
+
+    public function onDawn(RoleExecutionContext $context): ?RoleActionResult
+    {
+        return null;
+    }
+
+    public function onDay(RoleExecutionContext $context): ?RoleActionResult
+    {
+        return null;
+    }
+
+    public function validateAction(RoleExecutionContext $context): ValidationResult
+    {
+        return ValidationResult::valid();
     }
 }
