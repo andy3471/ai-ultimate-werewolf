@@ -62,6 +62,8 @@ return [
             'client_options' => [
                 // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
             ],
+            // Browser-facing host (Sail uses localhost while PHP talks to the soketi service)
+            'client_host' => env('VITE_PUSHER_HOST', env('PUSHER_HOST')),
         ],
 
         'ably' => [

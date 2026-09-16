@@ -45,7 +45,7 @@
         <script>
             window.__SOKETI__ = {
                 key: @json($pusher['key']),
-                host: @json(env('VITE_PUSHER_HOST', $pusher['options']['host'])),
+                host: @json($pusher['client_host'] ?? $pusher['options']['host']),
                 port: @json($pusher['options']['port']),
                 scheme: @json($pusher['options']['scheme']),
                 cluster: @json($pusher['options']['cluster']),
