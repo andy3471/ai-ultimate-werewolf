@@ -39,6 +39,18 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
+        @php
+            $pusher = config('broadcasting.connections.pusher');
+        @endphp
+        <script>
+            window.__SOKETI__ = {
+                key: @json($pusher['key']),
+                host: @json(env('VITE_PUSHER_HOST', $pusher['options']['host'])),
+                port: @json($pusher['options']['port']),
+                scheme: @json($pusher['options']['scheme']),
+                cluster: @json($pusher['options']['cluster']),
+            };
+        </script>
         @vite(['resources/js/app.ts', "resources/js/pages/{$page['component']}.vue"])
         @inertiaHead
     </head>
