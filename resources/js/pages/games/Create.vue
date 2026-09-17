@@ -40,12 +40,20 @@ function buildDefaultPlayers(): PlayerSlot[] {
     const providers = props.availableProviders;
     const personalities = props.availablePersonalities;
 
+    if (providers.length === 0 || personalities.length === 0) {
+        return defaults;
+    }
+
     // Spread models across available providers for variety
     const allModels: { provider: string; model: string; modelName: string }[] = [];
     for (const provider of providers) {
         for (const model of provider.models) {
             allModels.push({ provider: provider.id, model: model.id, modelName: model.name });
         }
+    }
+
+    if (allModels.length === 0) {
+        return defaults;
     }
 
     const usedNames: string[] = [];
@@ -66,6 +74,7 @@ function buildDefaultPlayers(): PlayerSlot[] {
 }
 
 const players = ref<PlayerSlot[]>(buildDefaultPlayers());
+const hasProviders = computed(() => props.availableProviders.some((provider) => provider.models.length > 0));
 
 const submitting = ref(false);
 
@@ -79,16 +88,25 @@ function getModelName(providerId: string, modelId: string): string {
 }
 
 function addPlayer() {
+    if (!hasProviders.value) {
+        return;
+    }
+
     const providerIndex = players.value.length % props.availableProviders.length;
     const provider = props.availableProviders[providerIndex];
+    const model = provider?.models[0];
+
+    if (!provider || !model) {
+        return;
+    }
+
     const personalityIndex = players.value.length % props.availablePersonalities.length;
-    const modelName = provider.models[0].name;
     const usedNames = players.value.map((p) => p.name);
 
     players.value.push({
-        name: uniqueName(modelName, usedNames),
+        name: uniqueName(model.name, usedNames),
         provider: provider.id,
-        model: provider.models[0].id,
+        model: model.id,
         personality: props.availablePersonalities[personalityIndex],
     });
 }
@@ -123,7 +141,9 @@ function submit() {
     });
 }
 
-const canSubmit = computed(() => players.value.length >= 5 && players.value.length <= 12);
+const canSubmit = computed(
+    () => hasProviders.value && players.value.length >= 5 && players.value.length <= 12,
+);
 
 const roleBreakdown = computed(() => {
     const n = players.value.length;
@@ -173,7 +193,22 @@ const providerAccent: Record<string, string> = {
                 </p>
             </div>
 
-            <div class="space-y-4">
+            <div
+                v-if="!hasProviders"
+                class="rounded-xl border border-amber-900/50 bg-amber-950/30 p-6 text-amber-100"
+            >
+                <h2 class="text-lg font-semibold">No AI providers configured</h2>
+                <p class="mt-2 text-sm text-amber-200/80">
+                    Set at least one of
+                    <code class="rounded bg-amber-950/60 px-1.5 py-0.5">OPENAI_API_KEY</code>,
+                    <code class="rounded bg-amber-950/60 px-1.5 py-0.5">ANTHROPIC_API_KEY</code>,
+                    or
+                    <code class="rounded bg-amber-950/60 px-1.5 py-0.5">GEMINI_API_KEY</code>
+                    in the environment, then redeploy.
+                </p>
+            </div>
+
+            <div v-else class="space-y-4">
                 <div
                     v-for="(player, index) in players"
                     :key="index"

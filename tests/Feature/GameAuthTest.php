@@ -55,6 +55,43 @@ test('authenticated users can view the game create page', function () {
         ->assertOk();
 });
 
+test('create page returns no providers when ai keys are missing', function () {
+    config([
+        'ai.providers.openai.key' => null,
+        'ai.providers.anthropic.key' => null,
+        'ai.providers.gemini.key' => null,
+    ]);
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('games.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('games/Create')
+            ->where('availableProviders', [])
+        );
+});
+
+test('create page includes configured ai providers', function () {
+    config([
+        'ai.providers.openai.key' => 'test-openai-key',
+        'ai.providers.anthropic.key' => null,
+        'ai.providers.gemini.key' => null,
+    ]);
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('games.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('games/Create')
+            ->has('availableProviders', 1)
+            ->where('availableProviders.0.id', 'openai')
+        );
+});
+
 test('authenticated users can create a game', function () {
     $user = User::factory()->create();
 
