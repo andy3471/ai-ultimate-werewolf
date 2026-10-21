@@ -1,7 +1,6 @@
 {
     "$schema": "https://schema.railpack.com",
     "packages": {
-        "node": "22",
-        "php": "8.5"
+        "node": "22"
     }
 }
