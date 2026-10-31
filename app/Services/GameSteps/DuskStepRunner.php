@@ -2,11 +2,12 @@
 
 namespace App\Services\GameSteps;
 
+use App\Contracts\Game\PhaseStepRunner;
 use App\Models\Game;
 use App\Services\GameEngine;
 use App\States\GamePhase\Night;
 
-class DuskStepRunner
+class DuskStepRunner implements PhaseStepRunner
 {
     public function run(Game $game, GameEngine $engine): bool
     {

@@ -2,14 +2,14 @@
 
 namespace App\Roles;
 
-use App\Ai\Agents\NightActionAgent;
+use App\Data\Ai\NightActionResponse;
+use App\Enums\GameEventType;
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
-use App\Events\PlayerActed;
-use App\Game\RoleExecution\RoleActionResult;
 use App\Game\RoleExecution\RoleExecutionContext;
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\RoleActions\NightActionExecutor;
 use App\Services\RoleRegistry;
 
 class Seer extends Role
@@ -78,7 +78,7 @@ class Seer extends Role
     {
         $investigations = $game->events()
             ->where('actor_player_id', $player->id)
-            ->where('type', 'seer_investigate')
+            ->where('type', GameEventType::SeerInvestigate->value)
             ->get();
 
         if ($investigations->isEmpty()) {
@@ -95,52 +95,27 @@ class Seer extends Role
         return implode("\n", $lines);
     }
 
-    public function onNightAction(RoleExecutionContext $context): RoleActionResult
+    public function onNightAction(RoleExecutionContext $context): void
     {
-        $seer = $context->actor;
-        if (! $seer) {
-            return RoleActionResult::continue();
-        }
-
-        $gameContext = app(\App\Ai\Context\GameContext::class)->buildForPlayer($context->game, $seer);
-        $result = NightActionAgent::make(
-            player: $seer,
-            game: $context->game,
-            context: $gameContext,
+        app(NightActionExecutor::class)->perform(
+            context: $context,
             actionPrompt: $this->nightActionPrompt(),
-        )->prompt(
-            'Choose a player to investigate.',
-            provider: $seer->provider,
-            model: $seer->model,
+            userPrompt: 'Choose a player to investigate.',
+            eventType: GameEventType::SeerInvestigate,
+            excludeActor: true,
+            buildExtraData: function (?string $targetId, Player $seer, NightActionResponse $response) use ($context): array {
+                $target = $targetId ? Player::find($targetId) : null;
+                $investigationResult = $target
+                    ? $this->describeNightResult($seer, $target, $context->game)
+                    : 'The investigation revealed nothing.';
+
+                return [
+                    'result' => $investigationResult,
+                    'requested_target_id' => $response->targetId,
+                    'resolved_target_id' => $targetId,
+                ];
+            },
         );
-
-        $requestedTargetId = (int) ($result['target_id'] ?? 0);
-        $targetId = $context->engine->resolveTargetId($requestedTargetId, $context->game, excludePlayerId: $seer->id);
-
-        $target = $targetId ? Player::find($targetId) : null;
-        $investigationResult = $target
-            ? $this->describeNightResult($seer, $target, $context->game)
-            : 'The investigation revealed nothing.';
-
-        $event = $context->game->events()->create([
-            'round' => $context->game->round,
-            'phase' => $context->game->phase->getValue(),
-            'type' => 'seer_investigate',
-            'actor_player_id' => $seer->id,
-            'target_player_id' => $targetId,
-            'data' => [
-                'thinking' => $result['thinking'] ?? '',
-                'public_reasoning' => $result['public_reasoning'] ?? '',
-                'result' => $investigationResult,
-                'requested_target_id' => $requestedTargetId,
-                'resolved_target_id' => $targetId,
-            ],
-            'is_public' => false,
-        ]);
-
-        broadcast(new PlayerActed($context->game->id, $event->toData()));
-
-        return RoleActionResult::continue();
     }
 
     public function standardDeckCopies(int $playerCount): int

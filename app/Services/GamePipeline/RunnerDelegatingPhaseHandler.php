@@ -3,6 +3,7 @@
 namespace App\Services\GamePipeline;
 
 use App\Contracts\Game\PhaseHandler;
+use App\Contracts\Game\PhaseStepRunner;
 use App\Models\Game;
 use App\Services\GameEngine;
 
@@ -10,7 +11,7 @@ class RunnerDelegatingPhaseHandler implements PhaseHandler
 {
     public function __construct(
         protected string $phaseClass,
-        protected object $runner,
+        protected PhaseStepRunner $runner,
         protected GameEngine $engine,
     ) {}
 

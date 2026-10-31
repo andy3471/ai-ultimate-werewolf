@@ -1,17 +1,14 @@
 <?php
 
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\RulesController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
     return redirect()->route('games.index');
 })->name('home');
 
-// Rules page
-Route::get('rules', function () {
-    return Inertia::render('Rules');
-})->name('rules');
+Route::get('rules', RulesController::class)->name('rules');
 
 // Game routes (authenticated)
 Route::middleware('auth')->group(function () {

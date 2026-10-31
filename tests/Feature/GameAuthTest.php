@@ -114,6 +114,19 @@ test('authenticated users can create a game', function () {
         ->and($game->players)->toHaveCount(5);
 });
 
+test('store rejects games with too few players', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('games.store'), [
+            'players' => [
+                ['name' => 'Alice', 'provider' => 'openai', 'model' => 'gpt-4o', 'personality' => 'Aggressive'],
+                ['name' => 'Bob', 'provider' => 'openai', 'model' => 'gpt-4o', 'personality' => 'Calm'],
+            ],
+        ])
+        ->assertSessionHasErrors('players');
+});
+
 test('authenticated users can view a game', function () {
     $user = User::factory()->create();
     $game = Game::factory()->create();

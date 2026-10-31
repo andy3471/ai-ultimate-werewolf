@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import GameLayout from '@/layouts/GameLayout.vue';
+import { Head, router } from '@inertiajs/vue3';
+import { computed, onMounted, ref } from 'vue';
+import { start, state } from '@/actions/App/Http/Controllers/GameController';
 import GameLog from '@/components/game/GameLog.vue';
 import PhaseIndicator from '@/components/game/PhaseIndicator.vue';
 import PlayerCard from '@/components/game/PlayerCard.vue';
 import RoleTooltip from '@/components/game/RoleTooltip.vue';
-import { useGameChannel } from '@/composables/useGameChannel';
 import { useAudioQueue } from '@/composables/useAudioQueue';
-import { Head, router } from '@inertiajs/vue3';
-import { computed, ref, onMounted } from 'vue';
-import { start } from '@/actions/App/Http/Controllers/GameController';
+import { useGameChannel } from '@/composables/useGameChannel';
+import { phaseDescription as defaultPhaseDescription } from '@/features/games/phaseMeta';
+import { roleMeta } from '@/features/games/roleMeta';
+import { winnerDisplay } from '@/features/games/winnerDisplay';
+import GameLayout from '@/layouts/GameLayout.vue';
 
 type GameData = App.Data.GameData;
-type GameEventData = App.Data.GameEventData;
 type PlayerData = App.Data.PlayerData;
 
 const props = defineProps<{
@@ -60,8 +62,9 @@ const {
 // Merged phase: live data takes priority over initial props
 const phase = computed(() => currentPhase.value || props.game.phase);
 const round = computed(() => currentRound.value || props.game.round);
-const description = computed(() => phaseDescription.value || phaseLabel(phase.value));
+const description = computed(() => phaseDescription.value || defaultPhaseDescription(phase.value));
 const winner = computed(() => liveWinner.value || props.game.winner);
+const winnerBanner = computed(() => (winner.value ? winnerDisplay(winner.value) : null));
 
 // Merge initial events with live events
 const allEvents = computed(() => {
@@ -119,10 +122,9 @@ function pollUntilStarted(attempts = 0) {
 
     setTimeout(async () => {
         try {
-            const res = await fetch(`/api/games/${props.game.id}/state`);
-            const data = await res.json();
+            const res = await fetch(state.url(props.game.id));
+            const data = (await res.json()) as App.Data.GameData;
             if (data.status !== 'pending') {
-                // Game has started — reload via Inertia to get fresh props
                 router.reload();
                 return;
             }
@@ -133,41 +135,22 @@ function pollUntilStarted(attempts = 0) {
     }, 1000);
 }
 
-function phaseLabel(p: string): string {
-    const map: Record<string, string> = {
-        lobby: 'Waiting for game to start...',
-        night: 'Night actions are in progress.',
-        dawn: 'Night actions are resolved.',
-        day_discussion: 'Players discuss in turn; nominations start after.',
-        day_voting: 'Nominations, second, defense, then trial vote.',
-        dusk: 'Trial resolved; night may follow.',
-        game_over: 'The game has ended.',
-    };
-    return map[p] || '';
-}
-
-function winnerDisplay(w: string) {
-    if (w === 'village') return { label: 'The Village Wins!', icon: '🏘️', color: 'from-sky-900/50 to-neutral-950' };
-    if (w === 'neutral') return { label: 'The Tanner Wins!', icon: '🪚', color: 'from-yellow-900/50 to-neutral-950' };
-    return { label: 'The Werewolves Win!', icon: '🐺', color: 'from-red-900/50 to-neutral-950' };
-}
-
 function displayPlayer(player: PlayerData) {
-    // If showAllRoles is off, hide role for alive players (dead roles are always shown)
     if (!showAllRoles.value && player.is_alive && !eliminatedPlayerIds.value.has(player.id)) {
         return { ...player, role: null };
     }
     return player;
 }
 
-const roleInfo: Record<string, { icon: string; team: string; teamColor: string; bg: string }> = {
-    Werewolf: { icon: '🐺', team: 'Werewolf', teamColor: 'text-red-400', bg: 'bg-red-950/40 ring-1 ring-red-900/40' },
-    Villager: { icon: '🧑‍🌾', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
-    Seer: { icon: '🔮', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
-    Bodyguard: { icon: '🛡️', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
-    Hunter: { icon: '🏹', team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
-    Tanner: { icon: '🪚', team: 'Neutral', teamColor: 'text-yellow-500', bg: 'bg-yellow-950/30 ring-1 ring-yellow-900/30' },
-};
+function distributionBadgeClass(role: string): string {
+    const meta = roleMeta(role);
+
+    return meta ? `${meta.bg} ring-1 ring-neutral-700/40` : 'bg-neutral-800';
+}
+
+function distributionIcon(role: string): string {
+    return roleMeta(role)?.icon ?? '❓';
+}
 </script>
 
 <template>
@@ -177,14 +160,14 @@ const roleInfo: Record<string, { icon: string; team: string; teamColor: string; 
         <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
             <!-- Winner Banner -->
             <div
-                v-if="isFinished && winner"
+                v-if="isFinished && winnerBanner"
                 :class="[
                     'mb-6 rounded-xl bg-gradient-to-r p-6 text-center',
-                    winnerDisplay(winner).color,
+                    winnerBanner.color,
                 ]"
             >
-                <div class="text-5xl">{{ winnerDisplay(winner).icon }}</div>
-                <h2 class="mt-2 text-2xl font-bold text-neutral-100">{{ winnerDisplay(winner).label }}</h2>
+                <div class="text-5xl">{{ winnerBanner.icon }}</div>
+                <h2 class="mt-2 text-2xl font-bold text-neutral-100">{{ winnerBanner.label }}</h2>
                 <p v-if="winnerMessage" class="mt-1 text-neutral-300">{{ winnerMessage }}</p>
             </div>
 
@@ -217,8 +200,8 @@ const roleInfo: Record<string, { icon: string; team: string; teamColor: string; 
                         :key="role"
                         :role="String(role)"
                     >
-                        <span :class="['inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-neutral-200', roleInfo[role]?.bg || 'bg-neutral-800']">
-                            <span>{{ roleInfo[role]?.icon || '❓' }}</span>
+                        <span :class="['inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-neutral-200', distributionBadgeClass(String(role))]">
+                            <span>{{ distributionIcon(String(role)) }}</span>
                             <span>{{ count }}x {{ role }}</span>
                         </span>
                     </RoleTooltip>

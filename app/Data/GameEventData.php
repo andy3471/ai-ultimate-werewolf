@@ -21,7 +21,7 @@ class GameEventData extends Data
         public bool $is_public,
         public string $created_at,
         public ?string $audio_url = null,
-        /** @var array<string, mixed>|null */
+        /** @var array<string, scalar|null>|null */
         public ?array $data = null,
     ) {}
 }

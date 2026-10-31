@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { phaseMeta } from '@/features/games/phaseMeta';
 
 const props = defineProps<{
     phase: string;
@@ -8,19 +9,7 @@ const props = defineProps<{
     narration?: string | null;
 }>();
 
-const phaseDisplay = computed(() => {
-    const map: Record<string, { label: string; icon: string; bg: string }> = {
-        lobby: { label: 'Lobby', icon: '🏠', bg: 'from-neutral-800 to-neutral-900' },
-        night: { label: 'Night', icon: '🌙', bg: 'from-indigo-950 to-neutral-950' },
-        dawn: { label: 'Dawn', icon: '🌅', bg: 'from-amber-950 to-neutral-950' },
-        day_discussion: { label: 'Discussion', icon: '💬', bg: 'from-sky-950 to-neutral-950' },
-        day_voting: { label: 'Voting', icon: '🗳️', bg: 'from-red-950 to-neutral-950' },
-        dusk: { label: 'Dusk', icon: '🌆', bg: 'from-orange-950 to-neutral-950' },
-        game_over: { label: 'Game Over', icon: '🏁', bg: 'from-neutral-800 to-neutral-900' },
-    };
-    return map[props.phase] || { label: props.phase, icon: '❓', bg: 'from-neutral-800 to-neutral-900' };
-});
-
+const phaseDisplay = computed(() => phaseMeta(props.phase));
 const isNight = computed(() => props.phase === 'night');
 </script>
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import GameLayout from '@/layouts/GameLayout.vue';
-import RoleTooltip from '@/components/game/RoleTooltip.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { store } from '@/actions/App/Http/Controllers/GameController';
+import RoleTooltip from '@/components/game/RoleTooltip.vue';
+import GameLayout from '@/layouts/GameLayout.vue';
 
 interface ModelOption {
     id: string;

@@ -1,28 +1,14 @@
 <script setup lang="ts">
+import { nextTick, ref, watch } from 'vue';
+import { phaseLabel } from '@/features/games/phaseMeta';
 import GameLogEntry from './GameLogEntry.vue';
-import { ref, watch, nextTick } from 'vue';
-
-interface GameEventData {
-    id: string;
-    round: number;
-    phase: string;
-    type: string;
-    actor_player_id: string | null;
-    target_player_id: string | null;
-    message: string | null;
-    thinking: string | null;
-    public_reasoning: string | null;
-    is_public: boolean;
-    created_at: string;
-    audio_url?: string | null;
-}
 
 interface PlayerMap {
     [id: string]: { name: string; provider: string };
 }
 
 const props = defineProps<{
-    events: GameEventData[];
+    events: App.Data.GameEventData[];
     players: PlayerMap;
 }>();
 
@@ -40,21 +26,13 @@ watch(
     },
 );
 
-function phaseLabel(phase: string): string {
-    const map: Record<string, string> = {
-        night: '🌙 Night',
-        dawn: '🌅 Dawn',
-        day_discussion: '💬 Discussion',
-        day_voting: '🗳️ Voting',
-        dusk: '🌆 Dusk',
-        game_over: '🏁 Game Over',
-    };
-    return map[phase] || phase;
-}
-
-// Group events by round and phase
-function groupEvents(events: GameEventData[]) {
-    const groups: { round: number; phase: string; label: string; events: GameEventData[] }[] = [];
+function groupEvents(events: App.Data.GameEventData[]) {
+    const groups: {
+        round: number;
+        phase: string;
+        label: string;
+        events: App.Data.GameEventData[];
+    }[] = [];
     let currentKey = '';
 
     for (const event of events) {
@@ -68,7 +46,7 @@ function groupEvents(events: GameEventData[]) {
                 events: [],
             });
         }
-        groups[groups.length - 1].events.push(event);
+        groups[groups.length - 1]?.events.push(event);
     }
 
     return groups;

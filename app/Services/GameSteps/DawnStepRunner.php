@@ -2,22 +2,34 @@
 
 namespace App\Services\GameSteps;
 
+use App\Contracts\Game\PhaseStepRunner;
+use App\Enums\DawnFollowUpStep;
+use App\Enums\GameEventType;
 use App\Events\PlayerActed;
 use App\Events\PlayerEliminated;
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\EliminationService;
 use App\Services\GameEngine;
 use App\States\GamePhase\DayDiscussion;
 
-class DawnStepRunner
+class DawnStepRunner implements PhaseStepRunner
 {
+    public function __construct(
+        protected EliminationService $eliminationService,
+    ) {}
+
     public function run(Game $game, GameEngine $engine): bool
     {
         $resolution = $engine->getOrCreateDawnResolution($game);
         $dawnEvents = $game->events()
             ->where('round', $game->round)
             ->where('phase', $game->phase->getValue())
-            ->whereIn('type', ['death', 'bodyguard_save', 'no_death'])
+            ->whereIn('type', [
+                GameEventType::Death->value,
+                GameEventType::BodyguardSave->value,
+                GameEventType::NoDeath->value,
+            ])
             ->orderBy('id')
             ->get()
             ->values();
@@ -25,7 +37,7 @@ class DawnStepRunner
         if ($game->phase_step < $dawnEvents->count()) {
             $event = $dawnEvents->get($game->phase_step);
 
-            if ($event->type === 'death') {
+            if ($event->type === GameEventType::Death->value) {
                 broadcast(new PlayerEliminated(
                     $game->id,
                     $event->toData(),
@@ -41,8 +53,11 @@ class DawnStepRunner
             return false;
         }
 
-        $stepAfterBroadcasts = (int) $dawnEvents->count();
-        if ($game->phase_step === $stepAfterBroadcasts) {
+        $followUpBase = (int) $dawnEvents->count();
+        $relativeStep = $game->phase_step - $followUpBase;
+        $followUp = DawnFollowUpStep::tryFrom($relativeStep);
+
+        if ($followUp === DawnFollowUpStep::Narration) {
             $engine->generateAndBroadcastNarration($game);
 
             return false;
@@ -52,32 +67,20 @@ class DawnStepRunner
         $killedPlayer = $killedPlayerId ? Player::find($killedPlayerId) : null;
 
         if ($killedPlayer) {
-            if ($game->phase_step === $stepAfterBroadcasts + 1) {
+            if ($followUp === DawnFollowUpStep::DyingSpeech) {
                 $engine->giveDyingSpeech($game, $killedPlayer);
 
                 return false;
             }
 
-            if ($game->phase_step === $stepAfterBroadcasts + 2) {
+            if ($followUp === DawnFollowUpStep::EliminationFollowUp) {
                 $engine->processEliminationFollowUp($game, $killedPlayer);
 
                 return false;
             }
 
-            if ($game->phase_step === $stepAfterBroadcasts + 3) {
-                $shotEvent = $game->events()
-                    ->where('round', $game->round)
-                    ->where('phase', $game->phase->getValue())
-                    ->where('type', 'hunter_shot')
-                    ->latest('id')
-                    ->first();
-
-                if ($shotEvent && $shotEvent->target_player_id) {
-                    $shotPlayer = Player::find($shotEvent->target_player_id);
-                    if ($shotPlayer) {
-                        $engine->giveDyingSpeech($game, $shotPlayer);
-                    }
-                }
+            if ($followUp === DawnFollowUpStep::HunterShotDyingSpeech) {
+                $this->eliminationService->giveHunterShotDyingSpeech($game, $engine);
 
                 return false;
             }

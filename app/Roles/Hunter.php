@@ -4,6 +4,8 @@ namespace App\Roles;
 
 use App\Ai\Agents\NightActionAgent;
 use App\Ai\Context\GameContext;
+use App\Data\Ai\NightActionResponse;
+use App\Enums\GameEventType;
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
 use App\Events\PlayerEliminated;
@@ -59,7 +61,7 @@ class Hunter extends Role
         return ! $game->events()
             ->where('round', $game->round)
             ->where('phase', $game->phase->getValue())
-            ->where('type', 'hunter_shot')
+            ->where('type', GameEventType::HunterShot->value)
             ->exists();
     }
 
@@ -90,7 +92,8 @@ class Hunter extends Role
                 model: $eliminated->model,
             );
 
-            $targetId = $engine->resolveTargetId($result['target_id'], $game, excludePlayerId: $eliminated->id);
+            $response = NightActionResponse::fromAgentResult($result);
+            $targetId = $engine->resolveTargetId($response->targetId, $game, excludePlayerId: $eliminated->id);
             $target = $targetId ? Player::find($targetId) : null;
 
             if ($target && $target->is_alive) {
@@ -100,12 +103,12 @@ class Hunter extends Role
                 $event = $game->events()->create([
                     'round' => $game->round,
                     'phase' => $game->phase->getValue(),
-                    'type' => 'hunter_shot',
+                    'type' => GameEventType::HunterShot->value,
                     'actor_player_id' => $eliminated->id,
                     'target_player_id' => $target->id,
                     'data' => [
-                        'thinking' => $result['thinking'] ?? '',
-                        'public_reasoning' => $result['public_reasoning'] ?? '',
+                        'thinking' => $response->thinking,
+                        'public_reasoning' => $response->publicReasoning,
                         'message' => $hunterMessage,
                         'role_revealed' => $target->role->value,
                     ],

@@ -2,13 +2,14 @@
 
 namespace App\Services\GameSteps;
 
+use App\Contracts\Game\PhaseStepRunner;
 use App\Models\Game;
 use App\Roles\Role;
 use App\Services\GameEngine;
 use App\Services\RoleRegistry;
 use App\States\GamePhase\Dawn;
 
-class NightRoleStepRunner
+class NightRoleStepRunner implements PhaseStepRunner
 {
     public function __construct(
         protected RoleRegistry $roleRegistry,

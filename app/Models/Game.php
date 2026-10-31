@@ -6,6 +6,7 @@ use App\Data\GameData;
 use App\Enums\GameTeam;
 use App\States\GamePhase\GamePhaseState;
 use App\States\GameStatus\GameStatusState;
+use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,10 +16,18 @@ use Spatie\ModelStates\HasStates;
 
 class Game extends Model
 {
-    /** @use HasFactory<\Database\Factories\GameFactory> */
+    /** @use HasFactory<GameFactory> */
     use HasFactory, HasStates, HasUuids;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'user_id',
+        'status',
+        'phase',
+        'round',
+        'phase_step',
+        'winner',
+        'role_distribution',
+    ];
 
     protected function casts(): array
     {

@@ -11,7 +11,7 @@ These `game_events.type` values and critical `data` / column keys are relied on 
 | `DayDiscussionStepRunner` | `discussion_warning_closing`, `discussion_warning_final_call` |
 | `DayVotingStepRunner` | `nomination`, `nomination_result`, `nomination_second`, `defense_speech`, `vote`, `vote_outcome`, `dying_speech`, `hunter_shot`, `hunter_shot_followup_done`, `nomination_block` |
 | `DayActionService` | `discussion_plan`, `discussion_pass`, `nomination_skip`, `nomination`, `nomination_result`, `nomination_second`, `defense_speech`, `vote`, `vote_tally`, `elimination`, `vote_outcome`, `no_elimination`, `discussion_extension` |
-| `VoteResolver` | `vote_tally`, `no_elimination`, `vote_tie`, `elimination` |
+| `DayActionService` | `vote_tally`, `no_elimination`, `vote_tie`, `elimination`, `vote_outcome` |
 | `EliminationService` | `dying_speech` |
 | `WinConditionResolver` | `game_end` (`data.winner`, `data.message`) |
 | `NarrationAudioService` | `narration` |

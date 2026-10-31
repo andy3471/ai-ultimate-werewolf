@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { BookOpen, Folder, LayoutGrid } from 'lucide-vue-next';
+import { index as gamesIndex } from '@/actions/App/Http/Controllers/GameController';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -13,7 +14,6 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { index as gamesIndex } from '@/actions/App/Http/Controllers/GameController';
 import { type NavItem } from '@/types';
 import AppLogo from './AppLogo.vue';
 

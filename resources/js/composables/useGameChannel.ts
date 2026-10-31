@@ -1,4 +1,5 @@
-import { ref, onMounted, onUnmounted } from 'vue';
+import type { Channel } from 'laravel-echo';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 export type GameEventData = App.Data.GameEventData;
 
@@ -46,14 +47,17 @@ export function useGameChannel(gameId: string, options: UseGameChannelOptions = 
     const winnerMessage = ref<string>('');
     const isConnected = ref(false);
 
-    let channel: any = null;
+    let channel: Channel | null = null;
 
     function connect() {
-        if (!window.Echo) return;
+        if (!window.Echo) {
+            return;
+        }
 
-        channel = window.Echo.channel(`game.${gameId}`);
+        const gameChannel = window.Echo.channel(`game.${gameId}`);
+        channel = gameChannel;
 
-        channel.listen('.phase.changed', (data: PhaseChangedEvent) => {
+        gameChannel.listen('.phase.changed', (data: PhaseChangedEvent) => {
             currentPhase.value = data.phase;
             currentRound.value = data.round;
             phaseDescription.value = data.description;
@@ -61,19 +65,19 @@ export function useGameChannel(gameId: string, options: UseGameChannelOptions = 
             options.onPhaseChanged?.(data);
         });
 
-        channel.listen('.player.acted', (data: PlayerActedEvent) => {
+        gameChannel.listen('.player.acted', (data: PlayerActedEvent) => {
             events.value.push(data.event);
             options.onEvent?.(data.event);
         });
 
-        channel.listen('.player.eliminated', (data: PlayerEliminatedEvent) => {
+        gameChannel.listen('.player.eliminated', (data: PlayerEliminatedEvent) => {
             events.value.push(data.event);
             eliminatedPlayerIds.value.add(data.playerId);
             revealedRoles.value.set(data.playerId, data.role);
             options.onEvent?.(data.event);
         });
 
-        channel.listen('.game.ended', (data: GameEndedEvent) => {
+        gameChannel.listen('.game.ended', (data: GameEndedEvent) => {
             winner.value = data.winner;
             winnerMessage.value = data.message;
         });

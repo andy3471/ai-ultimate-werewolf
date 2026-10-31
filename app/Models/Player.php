@@ -4,15 +4,28 @@ namespace App\Models;
 
 use App\Data\PlayerData;
 use App\Enums\GameRole;
+use Database\Factories\PlayerFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Player extends Model
 {
-    use HasUuids;
+    /** @use HasFactory<PlayerFactory> */
+    use HasFactory, HasUuids;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'game_id',
+        'name',
+        'provider',
+        'model',
+        'personality',
+        'role',
+        'order',
+        'is_alive',
+        'voice',
+    ];
 
     protected function casts(): array
     {

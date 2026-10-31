@@ -1,6 +1,6 @@
-import type { Auth } from '@/types/auth';
 import type Echo from 'laravel-echo';
-import type Pusher from 'pusher-js';
+import type PusherClient from 'pusher-js';
+import type { Auth } from '@/types/auth';
 
 interface SoketiConfig {
     key?: string | null;
@@ -13,7 +13,7 @@ interface SoketiConfig {
 declare global {
     var __SOKETI__: SoketiConfig | undefined;
     var Echo: Echo | undefined;
-    var Pusher: typeof Pusher;
+    var Pusher: typeof PusherClient;
 }
 
 // Extend ImportMeta interface for Vite...

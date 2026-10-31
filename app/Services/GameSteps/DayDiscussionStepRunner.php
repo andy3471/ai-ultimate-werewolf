@@ -2,6 +2,7 @@
 
 namespace App\Services\GameSteps;
 
+use App\Contracts\Game\PhaseStepRunner;
 use App\Events\PlayerActed;
 use App\Models\Game;
 use App\Models\Player;
@@ -9,7 +10,7 @@ use App\Services\DayActionService;
 use App\Services\GameEngine;
 use App\States\GamePhase\DayVoting;
 
-class DayDiscussionStepRunner
+class DayDiscussionStepRunner implements PhaseStepRunner
 {
     public function __construct(
         protected DayActionService $dayActionService,

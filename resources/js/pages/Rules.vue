@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import GameLayout from '@/layouts/GameLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import GameLayout from '@/layouts/GameLayout.vue';
 
 const roles = [
     {

@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Data\CreateGameData;
 use App\Enums\GameRole;
 use App\Models\Game;
+use App\Models\User;
 use App\Roles\Role;
+use App\States\GamePhase\Lobby;
 use App\States\GamePhase\Night;
+use App\States\GameStatus\Pending;
 use App\States\GameStatus\Running;
 
 class GameSetupService
@@ -14,6 +18,28 @@ class GameSetupService
         protected RoleRegistry $roleRegistry,
         protected VoiceService $voiceService,
     ) {}
+
+    public function createPendingGame(User $user, CreateGameData $data): Game
+    {
+        $game = Game::create([
+            'user_id' => $user->id,
+            'status' => Pending::getMorphClass(),
+            'phase' => Lobby::getMorphClass(),
+            'round' => 0,
+        ]);
+
+        foreach ($data->players as $index => $playerData) {
+            $game->players()->create([
+                'name' => $playerData->name,
+                'provider' => $playerData->provider,
+                'model' => $playerData->model,
+                'personality' => $playerData->personality,
+                'order' => $index,
+            ]);
+        }
+
+        return $game;
+    }
 
     public function start(Game $game): void
     {

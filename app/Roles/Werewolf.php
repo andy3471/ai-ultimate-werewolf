@@ -2,14 +2,13 @@
 
 namespace App\Roles;
 
-use App\Ai\Agents\NightActionAgent;
+use App\Enums\GameEventType;
 use App\Enums\GameRole;
 use App\Enums\GameTeam;
-use App\Events\PlayerActed;
-use App\Game\RoleExecution\RoleActionResult;
 use App\Game\RoleExecution\RoleExecutionContext;
 use App\Models\Game;
 use App\Models\Player;
+use App\Services\RoleActions\NightActionExecutor;
 
 class Werewolf extends Role
 {
@@ -92,44 +91,15 @@ class Werewolf extends Role
         return 2;
     }
 
-    public function onNightAction(RoleExecutionContext $context): RoleActionResult
+    public function onNightAction(RoleExecutionContext $context): void
     {
-        $werewolf = $context->actor;
-        if (! $werewolf) {
-            return RoleActionResult::continue();
-        }
-
-        $gameContext = app(\App\Ai\Context\GameContext::class)->buildForPlayer($context->game, $werewolf);
-
-        $result = NightActionAgent::make(
-            player: $werewolf,
-            game: $context->game,
-            context: $gameContext,
+        app(NightActionExecutor::class)->perform(
+            context: $context,
             actionPrompt: $this->nightActionPrompt(),
-        )->prompt(
-            'Choose your target for tonight.',
-            provider: $werewolf->provider,
-            model: $werewolf->model,
+            userPrompt: 'Choose your target for tonight.',
+            eventType: GameEventType::WerewolfKill,
+            excludeActor: true,
         );
-
-        $targetId = $context->engine->resolveTargetId($result['target_id'], $context->game, excludePlayerId: $werewolf->id);
-
-        $event = $context->game->events()->create([
-            'round' => $context->game->round,
-            'phase' => $context->game->phase->getValue(),
-            'type' => 'werewolf_kill',
-            'actor_player_id' => $werewolf->id,
-            'target_player_id' => $targetId,
-            'data' => [
-                'thinking' => $result['thinking'] ?? '',
-                'public_reasoning' => $result['public_reasoning'] ?? '',
-            ],
-            'is_public' => false,
-        ]);
-
-        broadcast(new PlayerActed($context->game->id, $event->toData()));
-
-        return RoleActionResult::continue();
     }
 
     public function skipNightPhase(Game $game): bool
@@ -142,7 +112,7 @@ class Werewolf extends Role
         $events = $game->events()
             ->where('round', $game->round)
             ->where('phase', $game->phase->getValue())
-            ->where('type', 'werewolf_kill')
+            ->where('type', GameEventType::WerewolfKill->value)
             ->orderBy('id')
             ->get();
 
@@ -157,7 +127,7 @@ class Werewolf extends Role
         $game->events()
             ->where('round', $game->round)
             ->where('phase', $game->phase->getValue())
-            ->where('type', 'werewolf_kill')
+            ->where('type', GameEventType::WerewolfKill->value)
             ->update(['target_player_id' => $finalTarget]);
     }
 
@@ -170,7 +140,7 @@ class Werewolf extends Role
     {
         $event = $game->events()
             ->where('round', $round)
-            ->where('type', 'werewolf_kill')
+            ->where('type', GameEventType::WerewolfKill->value)
             ->first();
 
         return [

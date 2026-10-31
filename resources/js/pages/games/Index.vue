@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import GameLayout from '@/layouts/GameLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { create, show } from '@/actions/App/Http/Controllers/GameController';
+import { winnerDisplay } from '@/features/games/winnerDisplay';
+import GameLayout from '@/layouts/GameLayout.vue';
+import { rules } from '@/routes';
 
 type GameData = App.Data.GameData;
 
@@ -22,9 +24,10 @@ function statusBadge(status: string) {
     }
 }
 
-function winnerLabel(winner: string | null) {
-    if (!winner) return '';
-    return winner === 'village' ? '🏘️ Village Wins' : '🐺 Werewolves Win';
+function winnerLabel(winner: App.Enums.GameTeam | string | null) {
+    const display = winnerDisplay(winner);
+
+    return display ? `${display.icon} ${display.shortLabel}` : '';
 }
 
 function formatDate(dateStr: string) {
@@ -48,7 +51,7 @@ function formatDate(dateStr: string) {
                     <p class="mt-1 text-neutral-400">
                         Watch AI models play Werewolf against each other
                         <span class="mx-1 text-neutral-600">·</span>
-                        <Link href="/rules" class="text-indigo-400 hover:text-indigo-300 transition">Learn the rules</Link>
+                        <Link :href="rules.url()" class="text-indigo-400 hover:text-indigo-300 transition">Learn the rules</Link>
                     </p>
                 </div>
                 <Link

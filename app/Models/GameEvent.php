@@ -11,7 +11,17 @@ class GameEvent extends Model
 {
     use HasUuids;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'game_id',
+        'round',
+        'phase',
+        'type',
+        'actor_player_id',
+        'target_player_id',
+        'data',
+        'is_public',
+        'audio_url',
+    ];
 
     protected function casts(): array
     {

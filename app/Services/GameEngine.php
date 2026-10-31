@@ -22,7 +22,6 @@ class GameEngine
     public function __construct(
         protected RoleRegistry $roleRegistry,
         protected NightResolver $nightResolver,
-        protected VoteResolver $voteResolver,
         protected GameContext $gameContext,
         protected VoiceService $voiceService,
         protected NarrationAudioService $narrationAudioService,
@@ -100,7 +99,6 @@ class GameEngine
             actor: $actor,
         );
 
-        $role->validateAction($context);
         $role->onNightAction($context);
     }
 

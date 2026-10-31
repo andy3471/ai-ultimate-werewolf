@@ -1,32 +1,16 @@
 <script setup lang="ts">
-import ThoughtBubble from './ThoughtBubble.vue';
-import { useAudioQueue } from '@/composables/useAudioQueue';
 import { computed } from 'vue';
+import { useAudioQueue } from '@/composables/useAudioQueue';
+import ThoughtBubble from './ThoughtBubble.vue';
 
 const { playOne } = useAudioQueue();
-
-interface GameEventData {
-    id: string;
-    round: number;
-    phase: string;
-    type: string;
-    actor_player_id: string | null;
-    target_player_id: string | null;
-    message: string | null;
-    thinking: string | null;
-    public_reasoning: string | null;
-    is_public: boolean;
-    created_at: string;
-    audio_url?: string | null;
-    data?: Record<string, any> | null;
-}
 
 interface PlayerMap {
     [id: string]: { name: string; provider: string };
 }
 
 const props = defineProps<{
-    event: GameEventData;
+    event: App.Data.GameEventData;
     players: PlayerMap;
     forceShowThinking?: boolean;
 }>();
@@ -43,8 +27,13 @@ const targetName = computed(() => {
 
 const addressedName = computed(() => {
     const addressedId = props.event.data?.addressed_player_id;
-    if (!addressedId) return null;
-    return props.players[addressedId]?.name ?? `Player #${addressedId}`;
+    if (typeof addressedId !== 'string' && typeof addressedId !== 'number') {
+        return null;
+    }
+
+    const key = String(addressedId);
+
+    return props.players[key]?.name ?? `Player #${key}`;
 });
 
 const typeConfig = computed(() => {

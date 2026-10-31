@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreGameRequest;
 use App\Jobs\RunGame;
 use App\Models\Game;
-use App\States\GamePhase\Lobby;
-use App\States\GameStatus\Pending;
+use App\Services\GameSetupService;
+use App\States\GameStatus\Finished;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class GameController extends Controller
 {
+    public function __construct(
+        protected GameSetupService $gameSetupService,
+    ) {}
+
     public function index(): Response
     {
         $games = Game::with('players')
@@ -34,32 +39,12 @@ class GameController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreGameRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'players' => 'required|array|min:5|max:12',
-            'players.*.name' => 'required|string|max:30',
-            'players.*.provider' => 'required|string',
-            'players.*.model' => 'required|string',
-            'players.*.personality' => 'required|string',
-        ]);
-
-        $game = Game::create([
-            'user_id' => auth()->id(),
-            'status' => Pending::getMorphClass(),
-            'phase' => Lobby::getMorphClass(),
-            'round' => 0,
-        ]);
-
-        foreach ($validated['players'] as $index => $playerData) {
-            $game->players()->create([
-                'name' => $playerData['name'],
-                'provider' => $playerData['provider'],
-                'model' => $playerData['model'],
-                'personality' => $playerData['personality'],
-                'order' => $index,
-            ]);
-        }
+        $game = $this->gameSetupService->createPendingGame(
+            $request->user(),
+            $request->createGameData(),
+        );
 
         return redirect()->route('games.show', $game);
     }
@@ -78,7 +63,7 @@ class GameController extends Controller
     {
         Gate::authorize('start', $game);
 
-        if ($game->status instanceof \App\States\GameStatus\Finished) {
+        if ($game->status instanceof Finished) {
             return back()->with('error', 'Game has already finished.');
         }
 
@@ -87,10 +72,7 @@ class GameController extends Controller
         return back();
     }
 
-    /**
-     * API endpoint: return fresh game state for polling fallback.
-     */
-    public function state(Game $game)
+    public function state(Game $game): JsonResponse
     {
         $game->load(['players', 'events']);
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { login, register } from '@/routes';
 import { index as gamesIndex } from '@/actions/App/Http/Controllers/GameController';
+import { login, register } from '@/routes';
 
 withDefaults(
     defineProps<{

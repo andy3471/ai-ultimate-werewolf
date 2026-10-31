@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { index } from '@/actions/App/Http/Controllers/GameController';
+import { rules } from '@/routes';
 </script>
 
 <template>
@@ -11,7 +12,7 @@ import { index } from '@/actions/App/Http/Controllers/GameController';
                     <span class="text-2xl">🐺</span>
                     <span>AI Werewolf</span>
                 </Link>
-                <Link href="/rules" class="text-sm text-neutral-400 transition hover:text-neutral-200">
+                <Link :href="rules.url()" class="text-sm text-neutral-400 transition hover:text-neutral-200">
                     📖 Rules
                 </Link>
             </div>
