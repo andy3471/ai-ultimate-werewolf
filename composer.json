@@ -117,6 +117,9 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "platform": {
+            "ext-sockets": "8.5.12"
         }
     },
     "minimum-stability": "stable",
