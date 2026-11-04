@@ -59,10 +59,16 @@ class Game extends Model
         return $this->hasMany(Player::class)->where('is_alive', true)->orderBy('order');
     }
 
+    public function reference(): string
+    {
+        return strtolower(substr((string) $this->id, 0, 8));
+    }
+
     public function toData(): GameData
     {
         return new GameData(
             id: $this->id,
+            reference: $this->reference(),
             userId: $this->user_id,
             status: $this->status->getValue(),
             phase: $this->phase->getValue(),

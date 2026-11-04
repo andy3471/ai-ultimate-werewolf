@@ -15,7 +15,6 @@ const props = defineProps<{
 const logContainer = ref<HTMLElement | null>(null);
 const showAllThoughts = ref(false);
 
-// Auto-scroll when new events arrive
 watch(
     () => props.events.length,
     async () => {
@@ -54,33 +53,32 @@ function groupEvents(events: App.Data.GameEventData[]) {
 </script>
 
 <template>
-    <div class="flex flex-col rounded-xl border border-neutral-800 bg-neutral-950/50">
-        <div class="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
-            <h3 class="text-sm font-semibold text-neutral-300">Game Log</h3>
+    <section class="flex flex-col border border-white/10 bg-dark-primary/40" aria-label="Game log">
+        <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <h2 class="text-sm font-semibold text-slate-300">Game log</h2>
             <button
+                type="button"
+                class="rounded-md px-2 py-1 text-xs font-medium transition"
+                :class="showAllThoughts
+                    ? 'bg-white/10 text-white'
+                    : 'bg-dark-tertiary text-slate-400 hover:text-slate-200'"
                 @click="showAllThoughts = !showAllThoughts"
-                :class="[
-                    'rounded-md px-2 py-1 text-xs font-medium transition',
-                    showAllThoughts
-                        ? 'bg-indigo-600/20 text-indigo-400'
-                        : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300',
-                ]"
             >
-                💭 {{ showAllThoughts ? 'Hide' : 'Show' }} All Thoughts
+                {{ showAllThoughts ? 'Hide thoughts' : 'Show all thoughts' }}
             </button>
         </div>
 
         <div ref="logContainer" class="flex-1 space-y-1 overflow-y-auto p-3" style="max-height: 600px">
-            <div v-if="events.length === 0" class="py-12 text-center text-neutral-500">
-                <div class="mb-2 text-3xl">🌙</div>
-                <p>Waiting for the game to begin...</p>
+            <div v-if="events.length === 0" class="px-2 py-14 text-center text-slate-500">
+                <p class="text-sm font-medium text-slate-400">Waiting for the game to begin</p>
+                <p class="mt-1 text-sm">Events appear here as phases run.</p>
             </div>
 
             <template v-for="group in groupEvents(events)" :key="`${group.round}-${group.phase}`">
-                <div class="sticky top-0 z-10 -mx-3 bg-neutral-950/90 px-3 py-1.5 backdrop-blur-sm">
-                    <div class="text-xs font-semibold text-neutral-500">
+                <div class="sticky top-0 z-10 -mx-3 bg-dark-primary/95 px-3 py-1.5 backdrop-blur-sm">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {{ group.label }}
-                        <span v-if="group.round > 0" class="text-neutral-600">- Round {{ group.round }}</span>
+                        <span v-if="group.round > 0" class="normal-case text-slate-600">, Round {{ group.round }}</span>
                     </div>
                 </div>
                 <GameLogEntry
@@ -92,5 +90,5 @@ function groupEvents(events: App.Data.GameEventData[]) {
                 />
             </template>
         </div>
-    </div>
+    </section>
 </template>

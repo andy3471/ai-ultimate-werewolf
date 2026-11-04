@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { roleMeta } from '@/features/games/roleMeta';
 import RoleTooltip from './RoleTooltip.vue';
 
 const props = defineProps<{
@@ -16,30 +17,43 @@ const props = defineProps<{
 }>();
 
 const displayRole = computed(() => {
-    if (props.revealedRole) return props.revealedRole;
-    if (props.player.role) return props.player.role;
+    if (props.revealedRole) {
+        return props.revealedRole;
+    }
+    if (props.player.role) {
+        return props.player.role;
+    }
     return null;
 });
 
 const roleDisplay = computed(() => {
-    const map: Record<string, { icon: string; label: string; color: string }> = {
-        werewolf: { icon: '🐺', label: 'Werewolf', color: 'text-red-400' },
-        villager: { icon: '🧑‍🌾', label: 'Villager', color: 'text-blue-400' },
-        seer: { icon: '🔮', label: 'Seer', color: 'text-purple-400' },
-        bodyguard: { icon: '🛡️', label: 'Bodyguard', color: 'text-emerald-400' },
-        hunter: { icon: '🏹', label: 'Hunter', color: 'text-amber-400' },
-        tanner: { icon: '🪚', label: 'Tanner', color: 'text-yellow-600' },
+    if (!displayRole.value) {
+        return null;
+    }
+
+    const meta = roleMeta(displayRole.value);
+    if (meta) {
+        return {
+            mark: meta.mark,
+            label: meta.label,
+            color: meta.teamColor,
+        };
+    }
+
+    return {
+        mark: '?',
+        label: displayRole.value,
+        color: 'text-slate-400',
     };
-    return displayRole.value ? map[displayRole.value] || { icon: '❓', label: displayRole.value, color: 'text-neutral-400' } : null;
 });
 
-const providerColor = computed(() => {
+const providerRing = computed(() => {
     const map: Record<string, string> = {
-        openai: 'ring-green-600/40',
-        anthropic: 'ring-orange-600/40',
-        gemini: 'ring-blue-600/40',
+        openai: 'ring-emerald-500/40',
+        anthropic: 'ring-orange-500/40',
+        gemini: 'ring-accent-blue/40',
     };
-    return map[props.player.provider] || 'ring-neutral-600/40';
+    return map[props.player.provider] || 'ring-white/15';
 });
 
 const isAlive = computed(() => props.player.is_alive && !props.isEliminated);
@@ -48,36 +62,38 @@ const isAlive = computed(() => props.player.is_alive && !props.isEliminated);
 <template>
     <div
         :class="[
-            'relative rounded-xl border p-3 transition-all duration-500',
+            'relative border px-3 py-3 transition-opacity duration-500',
             isAlive
-                ? 'border-neutral-700 bg-neutral-900/80'
-                : 'border-neutral-800/50 bg-neutral-950/50 opacity-60',
+                ? 'border-white/10 bg-dark-secondary/70'
+                : 'border-white/5 bg-dark-primary/50 opacity-55',
         ]"
     >
-        <!-- Death overlay -->
-        <div v-if="!isAlive" class="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
-            <span class="text-2xl">💀</span>
+        <div
+            v-if="!isAlive"
+            class="pointer-events-none absolute inset-0 flex items-center justify-end pr-3"
+        >
+            <span class="text-xs font-semibold uppercase tracking-wide text-red-400/80">Eliminated</span>
         </div>
 
         <div class="flex items-center gap-3">
             <div
                 :class="[
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-2',
-                    providerColor,
-                    isAlive ? 'bg-neutral-800' : 'bg-neutral-900',
+                    providerRing,
+                    isAlive ? 'bg-dark-tertiary' : 'bg-dark-primary',
                 ]"
             >
-                <span class="text-sm font-bold text-neutral-300">{{ player.name.charAt(0) }}</span>
+                <span class="text-sm font-bold text-slate-200">{{ player.name.charAt(0) }}</span>
             </div>
             <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-semibold text-neutral-200">{{ player.name }}</div>
+                <div class="truncate text-sm font-semibold text-gray-100">{{ player.name }}</div>
                 <RoleTooltip v-if="roleDisplay" :role="roleDisplay.label">
-                    <div class="flex items-center gap-1">
-                        <span class="text-xs">{{ roleDisplay.icon }}</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] font-semibold text-slate-400" aria-hidden="true">{{ roleDisplay.mark }}</span>
                         <span :class="['text-xs font-medium', roleDisplay.color]">{{ roleDisplay.label }}</span>
                     </div>
                 </RoleTooltip>
-                <div v-else class="text-xs text-neutral-500">Role hidden</div>
+                <div v-else class="text-xs text-slate-500">Role hidden</div>
             </div>
         </div>
     </div>

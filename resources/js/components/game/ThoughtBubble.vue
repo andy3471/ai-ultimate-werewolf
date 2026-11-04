@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
     thinking: string;
@@ -18,14 +18,16 @@ function toggle() {
 <template>
     <div v-if="thinking" class="mt-2">
         <button
+            type="button"
+            class="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
             @click="toggle()"
-            class="flex items-center gap-1.5 text-xs text-neutral-500 transition hover:text-neutral-300"
         >
             <svg
                 xmlns="http://www.w3.org/2000/svg"
                 :class="['h-3.5 w-3.5 transition-transform', expanded ? 'rotate-90' : '']"
                 viewBox="0 0 20 20"
                 fill="currentColor"
+                aria-hidden="true"
             >
                 <path
                     fill-rule="evenodd"
@@ -33,7 +35,7 @@ function toggle() {
                     clip-rule="evenodd"
                 />
             </svg>
-            <span>💭 Show thinking</span>
+            <span>{{ expanded ? 'Hide thinking' : 'Show thinking' }}</span>
         </button>
         <Transition
             enter-active-class="transition-all duration-300 ease-out"
@@ -43,11 +45,14 @@ function toggle() {
             leave-from-class="max-h-96 opacity-100"
             leave-to-class="max-h-0 opacity-0"
         >
-            <div v-if="expanded" class="mt-2 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/80 p-3">
-                <div class="mb-1 text-xs font-medium text-neutral-500">
+            <div
+                v-if="expanded"
+                class="mt-2 overflow-hidden border border-white/10 bg-dark-primary/80 p-3"
+            >
+                <div class="mb-1 text-xs font-medium text-slate-500">
                     {{ playerName ? `${playerName}'s thinking` : 'Internal thinking' }}
                 </div>
-                <p class="whitespace-pre-wrap text-sm leading-relaxed text-neutral-400 italic">{{ thinking }}</p>
+                <p class="whitespace-pre-wrap text-sm leading-relaxed text-slate-400 italic">{{ thinking }}</p>
             </div>
         </Transition>
     </div>

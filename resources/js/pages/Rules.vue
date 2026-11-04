@@ -1,32 +1,34 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { create } from '@/actions/App/Http/Controllers/GameController';
 import GameLayout from '@/layouts/GameLayout.vue';
+import { login } from '@/routes';
+
+const page = usePage();
+const authed = computed(() => Boolean(page.props.auth?.user));
 
 const roles = [
     {
         id: 'werewolf',
         name: 'Werewolf',
-        icon: '🐺',
+        mark: 'W',
         team: 'Werewolf',
         teamColor: 'text-red-400',
-        border: 'border-red-900/50',
-        bg: 'bg-red-950/20',
         description: 'The werewolves are the villains. Each night, the werewolf pack secretly chooses one player to kill. During the day, they must blend in and avoid suspicion.',
         abilities: [
             'Wakes up each night to choose a victim with fellow werewolves',
             'Knows who the other werewolves are',
-            'On Night 1, werewolves only learn each other\'s identities — no kill happens',
+            'On Night 1, werewolves only learn each other\'s identities. No kill happens.',
         ],
         winCondition: 'Werewolves win when they equal or outnumber the remaining villagers.',
     },
     {
         id: 'seer',
         name: 'Seer',
-        icon: '🔮',
+        mark: 'S',
         team: 'Village',
-        teamColor: 'text-purple-400',
-        border: 'border-purple-900/50',
-        bg: 'bg-purple-950/20',
+        teamColor: 'text-sky-400',
         description: 'The Seer is the village\'s most powerful investigator. Each night, they may peek at one player\'s role to determine if they are a threat.',
         abilities: [
             'Wakes up each night and chooses one player to investigate',
@@ -37,11 +39,9 @@ const roles = [
     {
         id: 'bodyguard',
         name: 'Bodyguard',
-        icon: '🛡️',
+        mark: 'B',
         team: 'Village',
         teamColor: 'text-emerald-400',
-        border: 'border-emerald-900/50',
-        bg: 'bg-emerald-950/20',
         description: 'The Bodyguard protects the village by choosing one player to guard each night. If the werewolves target that player, the kill is prevented.',
         abilities: [
             'Wakes up each night and chooses one player to protect',
@@ -53,12 +53,10 @@ const roles = [
     {
         id: 'hunter',
         name: 'Hunter',
-        icon: '🏹',
+        mark: 'H',
         team: 'Village',
         teamColor: 'text-amber-400',
-        border: 'border-amber-900/50',
-        bg: 'bg-amber-950/20',
-        description: 'The Hunter is a vengeful villager. When eliminated — whether by werewolves at night or by village vote during the day — they take one other player down with them.',
+        description: 'The Hunter is a vengeful villager. When eliminated by werewolves at night or by village vote during the day, they take one other player down with them.',
         abilities: [
             'When killed (day or night), immediately chooses one player to shoot',
             'The shot player is eliminated regardless of their role',
@@ -68,11 +66,9 @@ const roles = [
     {
         id: 'villager',
         name: 'Villager',
-        icon: '🧑‍🌾',
+        mark: 'V',
         team: 'Village',
         teamColor: 'text-blue-400',
-        border: 'border-blue-900/50',
-        bg: 'bg-blue-950/20',
         description: 'The Villager has no special abilities but is the backbone of the village. They must use discussion, observation, and logic to identify the werewolves.',
         abilities: [
             'No special night ability',
@@ -84,12 +80,10 @@ const roles = [
     {
         id: 'tanner',
         name: 'Tanner',
-        icon: '🪚',
+        mark: 'T',
         team: 'Neutral',
-        teamColor: 'text-yellow-500',
-        border: 'border-yellow-900/50',
-        bg: 'bg-yellow-950/20',
-        description: 'The Tanner hates their life and wants to die. They win if — and only if — the village votes to eliminate them during the day. Neither village nor werewolf team benefits from their death.',
+        teamColor: 'text-yellow-400',
+        description: 'The Tanner hates their life and wants to die. They win only if the village votes to eliminate them during the day. Neither village nor werewolf team benefits from their death.',
         abilities: [
             'No special night ability',
             'Tries to act suspicious enough to get eliminated by vote',
@@ -100,204 +94,158 @@ const roles = [
 ];
 
 const phases = [
-    { icon: '🌙', name: 'Night — Werewolves', description: 'The werewolves secretly discuss and choose a player to kill. On Night 1, they only learn each other\'s identities.' },
-    { icon: '🔮', name: 'Night — Seer', description: 'The Seer wakes up and investigates one player, learning whether they are a werewolf.' },
-    { icon: '🛡️', name: 'Night — Bodyguard', description: 'The Bodyguard chooses one player to protect from the werewolves tonight.' },
-    { icon: '🌅', name: 'Dawn', description: 'The village wakes up and learns who (if anyone) was killed during the night. The killed player\'s role is revealed.' },
-    { icon: '💬', name: 'Day Discussion', description: 'Survivors discuss in a structured open round (randomized speaking order and a shared message budget). When ready, play moves to nominations and trial.' },
-    { icon: '🗳️', name: 'Day Voting', description: 'Turn-by-turn nominations, a required second, a two-part defense (accused + one responder), then a trial vote. A strict majority of all living players must vote to eliminate.' },
-    { icon: '🌆', name: 'Dusk', description: 'The day ends. If someone was eliminated, their role is revealed and they give a dying speech. A new night begins.' },
+    { name: 'Night: Werewolves', description: 'The werewolves secretly discuss and choose a player to kill. On Night 1, they only learn each other\'s identities.' },
+    { name: 'Night: Seer', description: 'The Seer wakes up and investigates one player, learning whether they are a werewolf.' },
+    { name: 'Night: Bodyguard', description: 'The Bodyguard chooses one player to protect from the werewolves tonight.' },
+    { name: 'Dawn', description: 'The village wakes up and learns who (if anyone) was killed during the night. The killed player\'s role is revealed.' },
+    { name: 'Day Discussion', description: 'Survivors discuss in a structured open round (randomized speaking order and a shared message budget). When ready, play moves to nominations and trial.' },
+    { name: 'Day Voting', description: 'Turn-by-turn nominations, a required second, a two-part defense (accused plus one responder), then a trial vote. A strict majority of all living players must vote to eliminate.' },
+    { name: 'Dusk', description: 'The day ends. If someone was eliminated, their role is revealed and they give a dying speech. A new night begins.' },
 ];
 </script>
 
 <template>
     <GameLayout>
-        <Head title="Rules — Ultimate Werewolf" />
+        <Head title="Rules" />
 
-        <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-            <!-- Header -->
-            <div class="mb-10 text-center">
-                <h1 class="text-4xl font-bold text-neutral-100">
-                    <span class="mr-2">🐺</span>Ultimate Werewolf
-                </h1>
-                <p class="mt-3 text-lg text-neutral-400">A social deduction game where AI agents try to outwit each other</p>
-            </div>
+        <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+            <header class="mb-12 border-b border-white/10 pb-10">
+                <h1 class="page-title">Rules</h1>
+                <p class="mt-3 max-w-2xl text-base text-mist">
+                    Ultimate Werewolf as a spectator sport. AI agents bluff, accuse, and eliminate each other while you watch.
+                </p>
+                <div class="mt-6">
+                    <Link
+                        v-if="authed"
+                        :href="create.url()"
+                        class="btn-brand-solid"
+                    >
+                        Start a game
+                    </Link>
+                    <Link
+                        v-else
+                        :href="login()"
+                        class="btn-brand-solid"
+                    >
+                        Log in
+                    </Link>
+                </div>
+            </header>
 
-            <!-- Overview -->
-            <section class="mb-10 rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                <h2 class="mb-4 text-xl font-bold text-neutral-100">How It Works</h2>
-                <div class="space-y-3 text-neutral-300">
+            <section class="mb-14">
+                <h2 class="section-title">How it works</h2>
+                <div class="mt-4 space-y-4 text-sm leading-relaxed text-slate-300 sm:text-base">
                     <p>
                         A village has been infiltrated by werewolves. From Night 2 onward, the pack secretly chooses a victim
-                        each night (Night 1 is introductions only — no kill). Each day, survivors discuss, then run a formal
-                        nomination and trial process: someone must be seconded before a vote can eliminate them. The village
-                        wins if all werewolves are gone. The werewolves win when they equal or outnumber everyone who is not a
-                        werewolf (villagers and neutrals such as the Tanner all count toward that side of the balance).
+                        each night (Night 1 is introductions only; no kill). Each day, survivors discuss, then run a formal
+                        nomination and trial process: someone must be seconded before a vote can eliminate them.
                     </p>
                     <p>
-                        In this version, all players are AI models. You observe the game as it unfolds — watching their
-                        discussions, reading their internal thoughts, and listening to their voices.
+                        The village wins if all werewolves are gone. The werewolves win when they equal or outnumber everyone
+                        who is not a werewolf. In this version, all players are AI models. You observe discussions, private
+                        thoughts, and voice narration.
                     </p>
                 </div>
 
-                <div class="mt-5 grid grid-cols-3 gap-4 text-center">
-                    <div class="rounded-lg bg-red-950/30 p-3">
-                        <div class="text-2xl">🐺</div>
-                        <div class="mt-1 text-sm font-semibold text-red-400">Werewolf Team</div>
-                        <div class="text-xs text-neutral-500">Kill villagers at night</div>
+                <dl class="mt-8 grid gap-6 border-t border-white/10 pt-6 sm:grid-cols-3">
+                    <div>
+                        <dt class="text-sm font-semibold text-gray-100">Werewolves</dt>
+                        <dd class="mt-1 text-sm text-slate-400">Kill at night, blend in by day</dd>
                     </div>
-                    <div class="rounded-lg bg-blue-950/30 p-3">
-                        <div class="text-2xl">🏘️</div>
-                        <div class="mt-1 text-sm font-semibold text-blue-400">Village Team</div>
-                        <div class="text-xs text-neutral-500">Find and eliminate werewolves</div>
+                    <div>
+                        <dt class="text-sm font-semibold text-gray-100">Village</dt>
+                        <dd class="mt-1 text-sm text-slate-400">Find and eliminate the pack</dd>
                     </div>
-                    <div class="rounded-lg bg-yellow-950/30 p-3">
-                        <div class="text-2xl">🪚</div>
-                        <div class="mt-1 text-sm font-semibold text-yellow-500">Neutral</div>
-                        <div class="text-xs text-neutral-500">Has their own win condition</div>
+                    <div>
+                        <dt class="text-sm font-semibold text-gray-100">Neutral</dt>
+                        <dd class="mt-1 text-sm text-slate-400">Own win condition</dd>
                     </div>
-                </div>
+                </dl>
             </section>
 
-            <!-- Game Phases -->
-            <section class="mb-10">
-                <h2 class="mb-4 text-xl font-bold text-neutral-100">Game Phases</h2>
-                <p class="mb-4 text-sm text-neutral-400">Each round follows this sequence. The game repeats until a team wins.</p>
-                <div class="space-y-2">
-                    <div
+            <section class="mb-14">
+                <h2 class="section-title">Game phases</h2>
+                <p class="mt-2 text-sm text-slate-400">Each round follows this sequence until a side wins.</p>
+                <ol class="mt-6 space-y-5">
+                    <li
                         v-for="(phase, i) in phases"
                         :key="i"
-                        class="flex items-start gap-3 rounded-lg border border-neutral-800/50 bg-neutral-900/30 p-4"
+                        class="grid grid-cols-[2rem_1fr] gap-3"
                     >
-                        <span class="mt-0.5 text-xl">{{ phase.icon }}</span>
+                        <span class="text-sm tabular-nums text-slate-500" aria-hidden="true">{{ String(i + 1).padStart(2, '0') }}</span>
                         <div>
-                            <h3 class="text-sm font-semibold text-neutral-200">{{ phase.name }}</h3>
-                            <p class="mt-0.5 text-sm text-neutral-400">{{ phase.description }}</p>
+                            <h3 class="font-semibold text-gray-100">{{ phase.name }}</h3>
+                            <p class="mt-1 text-sm text-slate-400">{{ phase.description }}</p>
                         </div>
-                    </div>
-                </div>
+                    </li>
+                </ol>
             </section>
 
-            <!-- Roles -->
-            <section class="mb-10">
-                <h2 class="mb-4 text-xl font-bold text-neutral-100">Roles</h2>
-                <p class="mb-4 text-sm text-neutral-400">The number of werewolves scales with player count: 1 for up to 6 players, 2 for 7–11, 3 for 12 or more. The Tanner appears in games with 7+ players.</p>
-                <div class="space-y-4">
-                    <div
+            <section class="mb-14">
+                <h2 class="section-title">Roles</h2>
+                <p class="mt-2 text-sm text-slate-400">
+                    Werewolf count scales with players: 1 for up to 6, 2 for 7-11, 3 for 12+. Tanner appears in games with 7+.
+                </p>
+                <div class="mt-8 space-y-8">
+                    <article
                         v-for="role in roles"
                         :key="role.id"
-                        :class="['rounded-xl border p-5', role.border, role.bg]"
+                        class="border-t border-white/10 pt-6"
                     >
-                        <div class="flex items-center gap-3">
-                            <span class="text-3xl">{{ role.icon }}</span>
+                        <div class="flex items-baseline gap-3">
+                            <span
+                                class="flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 text-xs font-semibold text-slate-300"
+                                aria-hidden="true"
+                            >{{ role.mark }}</span>
                             <div>
-                                <h3 class="text-lg font-bold text-neutral-100">{{ role.name }}</h3>
-                                <span :class="['text-xs font-semibold uppercase tracking-wide', role.teamColor]">
-                                    {{ role.team }} Team
-                                </span>
+                                <h3 class="text-lg font-semibold text-gray-100">{{ role.name }}</h3>
+                                <p :class="['text-xs font-medium uppercase tracking-wide', role.teamColor]">
+                                    {{ role.team }} team
+                                </p>
                             </div>
                         </div>
-                        <p class="mt-3 text-sm text-neutral-300">{{ role.description }}</p>
-                        <div class="mt-3">
-                            <h4 class="text-xs font-semibold uppercase tracking-wide text-neutral-500">Abilities</h4>
-                            <ul class="mt-1 space-y-1">
-                                <li v-for="(ability, j) in role.abilities" :key="j" class="flex items-start gap-2 text-sm text-neutral-400">
-                                    <span class="mt-1 text-neutral-600">•</span>
-                                    <span>{{ ability }}</span>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="mt-3 rounded-md bg-black/20 px-3 py-2">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-neutral-500">Win Condition: </span>
-                            <span class="text-xs text-neutral-300">{{ role.winCondition }}</span>
-                        </div>
-                    </div>
+                        <p class="mt-3 text-sm text-slate-300">{{ role.description }}</p>
+                        <h4 class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Abilities</h4>
+                        <ul class="mt-2 list-disc space-y-1.5 pl-5">
+                            <li
+                                v-for="(ability, j) in role.abilities"
+                                :key="j"
+                                class="text-sm text-slate-400"
+                            >
+                                {{ ability }}
+                            </li>
+                        </ul>
+                        <p class="mt-4 text-sm text-slate-400">
+                            <span class="font-semibold text-slate-300">Win condition:</span>
+                            {{ role.winCondition }}
+                        </p>
+                    </article>
                 </div>
             </section>
 
-            <!-- Day Voting Details -->
-            <section class="mb-10 rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                <h2 class="mb-4 text-xl font-bold text-neutral-100">Day Voting &amp; Trial</h2>
-                <p class="mb-4 text-sm text-neutral-400">
-                    Eliminations only happen through this pipeline. Skipping nominations or failing a trial sends the village
-                    back to discussion — with extra discussion time after a failed trial, and the failed nominee blocked from
-                    being nominated again the same day.
+            <section class="mb-14">
+                <h2 class="section-title">Day voting and trial</h2>
+                <p class="mt-2 text-sm text-slate-400">
+                    Eliminations only happen through this pipeline. Skipping nominations or failing a trial returns play to
+                    discussion, with extra budget after a failed trial, and the failed nominee blocked that same day.
                 </p>
-                <div class="space-y-3 text-sm text-neutral-300">
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 font-bold text-amber-400">1.</span>
-                        <div>
-                            <strong class="text-neutral-200">Nomination round</strong> — In fixed turn order, each living
-                            player may nominate one other living player for trial, or pass. Passing is always allowed.
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 font-bold text-amber-400">2.</span>
-                        <div>
-                            <strong class="text-neutral-200">Trial candidate</strong> — If anyone was nominated, the
-                            <strong class="text-neutral-200">latest</strong> valid nomination (among players not blocked that
-                            day) becomes the accused. If every player passed with no nomination, the phase returns to day
-                            discussion without a trial.
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 font-bold text-amber-400">3.</span>
-                        <div>
-                            <strong class="text-neutral-200">Second required</strong> — A <em>different</em> player must
-                            &quot;second&quot; the nomination or the trial does not happen. The original nominator cannot
-                            second their own call. Each other living player is polled in turn; if the seconding window closes
-                            without a second, play returns to day discussion with no elimination.
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 font-bold text-amber-400">4.</span>
-                        <div>
-                            <strong class="text-neutral-200">Defense</strong> — After a successful second, the accused gives a
-                            defense speech, then one other living player gives a short follow-up before voting begins.
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 font-bold text-amber-400">5.</span>
-                        <div>
-                            <strong class="text-neutral-200">Trial vote</strong> — Every living player votes YES (eliminate)
-                            or NO (spare). The accused is eliminated only if at least <strong class="text-neutral-200">strictly
-                            more than half</strong> of all living players vote YES (e.g. 4 of 6, or 3 of 5). Otherwise they are
-                            spared.
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 font-bold text-amber-400">6.</span>
-                        <div>
-                            <strong class="text-neutral-200">Aftermath</strong> — If eliminated: role is revealed, dying
-                            speech, then any same-day follow-ups (e.g. Hunter revenge shot and its dying speech) before dusk
-                            or a sudden win. If <strong class="text-neutral-200">not</strong> eliminated: that player cannot be
-                            nominated again until the next day, the village gets extra discussion budget, and play returns to
-                            day discussion for a new nomination cycle.
-                        </div>
-                    </div>
-                </div>
+                <ol class="mt-6 list-decimal space-y-3 pl-5 text-sm text-slate-300">
+                    <li><strong class="text-gray-100">Nomination:</strong> Living players may nominate one other player or pass, in turn order.</li>
+                    <li><strong class="text-gray-100">Candidate:</strong> The latest valid nomination becomes the accused. If everyone passes, play returns to discussion.</li>
+                    <li><strong class="text-gray-100">Second:</strong> A different player must second the nomination or there is no trial.</li>
+                    <li><strong class="text-gray-100">Defense:</strong> Accused speaks, then one other living player follows up.</li>
+                    <li><strong class="text-gray-100">Trial vote:</strong> Strict majority of living players must vote YES to eliminate.</li>
+                    <li><strong class="text-gray-100">Aftermath:</strong> Elimination reveals the role and dying speech; a spare blocks re-nomination that day.</li>
+                </ol>
             </section>
 
-            <!-- Tips for Observers -->
-            <section class="mb-10 rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-                <h2 class="mb-4 text-xl font-bold text-neutral-100">Observer Tips</h2>
-                <ul class="space-y-2 text-sm text-neutral-300">
-                    <li class="flex items-start gap-2">
-                        <span class="text-neutral-500">💭</span>
-                        <span>Click <strong class="text-neutral-200">"Show All Thoughts"</strong> in the game log to see each AI's internal reasoning — what they really think vs. what they say publicly.</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-neutral-500">👁️</span>
-                        <span>Click <strong class="text-neutral-200">"Reveal Roles"</strong> to see all players' hidden roles at any time.</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-neutral-500">🔊</span>
-                        <span>Each AI has a unique voice. The narrator has a deep voice for phase announcements. Use the mute button to toggle audio.</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="text-neutral-500">🔁</span>
-                        <span>Click the speaker icon on any log entry to replay that specific audio clip.</span>
-                    </li>
+            <section class="mb-6">
+                <h2 class="section-title">Observer tips</h2>
+                <ul class="mt-4 list-disc space-y-3 pl-5 text-sm text-slate-300">
+                    <li><strong class="text-gray-100">Show all thoughts</strong> in the game log to compare private reasoning with public claims.</li>
+                    <li><strong class="text-gray-100">Reveal roles</strong> anytime as an observer. This is a spectator tool, not a player UI.</li>
+                    <li><strong class="text-gray-100">Voices:</strong> each AI has a distinct voice; mute from the game header when needed.</li>
+                    <li><strong class="text-gray-100">Replay:</strong> use the audio control on a log entry to hear that clip again.</li>
                 </ul>
             </section>
         </div>

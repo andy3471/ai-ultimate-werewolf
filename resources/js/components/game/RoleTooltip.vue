@@ -16,14 +16,15 @@ const info = computed(() => roleMeta(props.role));
         <slot />
         <div
             v-if="show && info"
-            class="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-900 p-3 shadow-xl"
+            role="tooltip"
+            class="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 border border-white/10 bg-dark-secondary p-3 shadow-xl"
         >
             <div class="mb-1 flex items-center gap-2">
-                <span class="text-lg">{{ info.icon }}</span>
-                <span class="font-semibold text-neutral-100">{{ role }}</span>
+                <span class="text-xs font-semibold text-slate-400" aria-hidden="true">{{ info.mark }}</span>
+                <span class="font-semibold text-gray-100">{{ role }}</span>
                 <span :class="['text-xs font-medium', info.teamColor]">{{ info.team }}</span>
             </div>
-            <p class="text-xs leading-relaxed text-neutral-400">{{ info.short }}</p>
+            <p class="text-xs leading-relaxed text-slate-400">{{ info.short }}</p>
         </div>
     </span>
 </template>

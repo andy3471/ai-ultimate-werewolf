@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
-import { store } from '@/actions/App/Http/Controllers/GameController';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import { index, store } from '@/actions/App/Http/Controllers/GameController';
 import RoleTooltip from '@/components/game/RoleTooltip.vue';
 import GameLayout from '@/layouts/GameLayout.vue';
 
@@ -29,9 +29,13 @@ const props = defineProps<{
 }>();
 
 function uniqueName(baseName: string, existingNames: string[]): string {
-    if (!existingNames.includes(baseName)) return baseName;
+    if (!existingNames.includes(baseName)) {
+        return baseName;
+    }
     let i = 2;
-    while (existingNames.includes(`${baseName} #${i}`)) i++;
+    while (existingNames.includes(`${baseName} #${i}`)) {
+        i++;
+    }
     return `${baseName} #${i}`;
 }
 
@@ -44,7 +48,6 @@ function buildDefaultPlayers(): PlayerSlot[] {
         return defaults;
     }
 
-    // Spread models across available providers for variety
     const allModels: { provider: string; model: string; modelName: string }[] = [];
     for (const provider of providers) {
         for (const model of provider.models) {
@@ -75,7 +78,6 @@ function buildDefaultPlayers(): PlayerSlot[] {
 
 const players = ref<PlayerSlot[]>(buildDefaultPlayers());
 const hasProviders = computed(() => props.availableProviders.some((provider) => provider.models.length > 0));
-
 const submitting = ref(false);
 
 function getModelsForProvider(providerId: string): ModelOption[] {
@@ -137,7 +139,9 @@ function onModelChange(index: number) {
 function submit() {
     submitting.value = true;
     router.post(store.url(), { players: players.value }, {
-        onFinish: () => { submitting.value = false; },
+        onFinish: () => {
+            submitting.value = false;
+        },
     });
 }
 
@@ -156,27 +160,23 @@ const roleBreakdown = computed(() => {
     const villagers = Math.max(0, n - specialCount);
 
     const roles: { name: string; icon: string; count: number; team: string; teamColor: string; bg: string }[] = [
-        { name: 'Werewolf', icon: '🐺', count: wolves, team: 'Werewolf', teamColor: 'text-red-400', bg: 'bg-red-950/40 ring-1 ring-red-900/40' },
-        { name: 'Seer', icon: '🔮', count: seer, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
-        { name: 'Bodyguard', icon: '🛡️', count: bodyguard, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
-        { name: 'Hunter', icon: '🏹', count: hunter, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' },
+        { name: 'Werewolf', icon: 'W', count: wolves, team: 'Werewolf', teamColor: 'text-red-400', bg: 'bg-red-950/40 ring-1 ring-red-900/40' },
+        { name: 'Seer', icon: 'S', count: seer, team: 'Village', teamColor: 'text-sky-400', bg: 'bg-sky-950/30 ring-1 ring-sky-900/30' },
+        { name: 'Bodyguard', icon: 'B', count: bodyguard, team: 'Village', teamColor: 'text-emerald-400', bg: 'bg-emerald-950/30 ring-1 ring-emerald-900/30' },
+        { name: 'Hunter', icon: 'H', count: hunter, team: 'Village', teamColor: 'text-amber-400', bg: 'bg-amber-950/30 ring-1 ring-amber-900/30' },
     ];
-    if (tanner) roles.push({ name: 'Tanner', icon: '🪚', count: tanner, team: 'Neutral', teamColor: 'text-yellow-500', bg: 'bg-yellow-950/30 ring-1 ring-yellow-900/30' });
-    roles.push({ name: 'Villager', icon: '🧑‍🌾', count: villagers, team: 'Village', teamColor: 'text-blue-400', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' });
+    if (tanner) {
+        roles.push({ name: 'Tanner', icon: 'T', count: tanner, team: 'Neutral', teamColor: 'text-accent-yellow', bg: 'bg-yellow-950/30 ring-1 ring-yellow-900/30' });
+    }
+    roles.push({ name: 'Villager', icon: 'V', count: villagers, team: 'Village', teamColor: 'text-accent-blue', bg: 'bg-blue-950/30 ring-1 ring-blue-900/30' });
 
     return roles;
 });
 
-const providerColors: Record<string, string> = {
-    openai: 'border-green-600/40 bg-green-950/20',
-    anthropic: 'border-orange-600/40 bg-orange-950/20',
-    gemini: 'border-blue-600/40 bg-blue-950/20',
-};
-
 const providerAccent: Record<string, string> = {
-    openai: 'text-green-400',
+    openai: 'text-emerald-400',
     anthropic: 'text-orange-400',
-    gemini: 'text-blue-400',
+    gemini: 'text-accent-blue',
 };
 </script>
 
@@ -184,103 +184,137 @@ const providerAccent: Record<string, string> = {
     <GameLayout>
         <Head title="Create Game" />
 
-        <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
             <div class="mb-8">
-                <h1 class="text-3xl font-bold text-neutral-100">Create New Game</h1>
-                <p class="mt-1 text-neutral-400">
-                    Configure {{ players.length }} AI players to battle in a game of Werewolf.
-                    Minimum 5 players, maximum 12.
+                <Link :href="index.url()" class="link-quiet text-sm">
+                    ← Back to games
+                </Link>
+                <h1 class="page-title mt-3">Create game</h1>
+                <p class="mt-3 text-slate-400">
+                    Configure {{ players.length }} AI players.
+                    Minimum 5, maximum 12.
                 </p>
             </div>
 
             <div
                 v-if="!hasProviders"
-                class="rounded-xl border border-amber-900/50 bg-amber-950/30 p-6 text-amber-100"
+                class="border border-accent-yellow/30 bg-accent-yellow/5 px-5 py-5 text-accent-yellow"
+                role="alert"
             >
-                <h2 class="text-lg font-semibold">No AI providers configured</h2>
-                <p class="mt-2 text-sm text-amber-200/80">
+                <h2 class="font-semibold text-accent-yellow">No AI providers configured</h2>
+                <p class="mt-2 text-sm text-accent-yellow/80">
                     Set at least one of
-                    <code class="rounded bg-amber-950/60 px-1.5 py-0.5">OPENAI_API_KEY</code>,
-                    <code class="rounded bg-amber-950/60 px-1.5 py-0.5">ANTHROPIC_API_KEY</code>,
+                    <code class="rounded bg-black/30 px-1.5 py-0.5">OPENAI_API_KEY</code>,
+                    <code class="rounded bg-black/30 px-1.5 py-0.5">ANTHROPIC_API_KEY</code>,
                     or
-                    <code class="rounded bg-amber-950/60 px-1.5 py-0.5">GEMINI_API_KEY</code>
+                    <code class="rounded bg-black/30 px-1.5 py-0.5">GEMINI_API_KEY</code>
                     in the environment, then redeploy.
                 </p>
             </div>
 
-            <div v-else class="space-y-4">
-                <div
+            <ol v-else class="space-y-3" aria-label="Player slots">
+                <li
                     v-for="(player, index) in players"
                     :key="index"
-                    :class="[
-                        'rounded-xl border p-4 transition-all',
-                        providerColors[player.provider] || 'border-neutral-800 bg-neutral-900/50',
-                    ]"
+                    class="surface-panel p-4"
                 >
                     <div class="flex items-start gap-4">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-lg font-bold text-neutral-300">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-dark-tertiary text-sm font-bold text-slate-200 ring-1 ring-white/10"
+                            aria-hidden="true"
+                        >
                             {{ index + 1 }}
                         </div>
 
-                        <div class="flex-1 space-y-3">
+                        <div class="min-w-0 flex-1 space-y-3">
                             <div>
-                                <label class="mb-1 block text-xs font-medium text-neutral-400">Display Name</label>
+                                <label class="mb-1 block text-xs font-medium text-slate-400" :for="`name-${index}`">
+                                    Display name
+                                </label>
                                 <input
+                                    :id="`name-${index}`"
                                     v-model="player.name"
                                     type="text"
                                     placeholder="Player name"
                                     maxlength="30"
-                                    class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                />
+                                    class="field-brand"
+                                >
                             </div>
 
                             <div class="grid gap-3 sm:grid-cols-3">
                                 <div>
-                                    <label class="mb-1 block text-xs font-medium text-neutral-400">Provider</label>
+                                    <label class="mb-1 block text-xs font-medium text-slate-400" :for="`provider-${index}`">
+                                        Provider
+                                    </label>
                                     <select
+                                        :id="`provider-${index}`"
                                         v-model="player.provider"
+                                        class="field-brand"
                                         @change="onProviderChange(index)"
-                                        class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     >
-                                        <option v-for="provider in availableProviders" :key="provider.id" :value="provider.id">
+                                        <option
+                                            v-for="provider in availableProviders"
+                                            :key="provider.id"
+                                            :value="provider.id"
+                                        >
                                             {{ provider.name }}
                                         </option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label class="mb-1 block text-xs font-medium text-neutral-400">Model</label>
+                                    <label class="mb-1 block text-xs font-medium text-slate-400" :for="`model-${index}`">
+                                        Model
+                                    </label>
                                     <select
+                                        :id="`model-${index}`"
                                         v-model="player.model"
+                                        class="field-brand"
                                         @change="onModelChange(index)"
-                                        class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     >
-                                        <option v-for="model in getModelsForProvider(player.provider)" :key="model.id" :value="model.id">
+                                        <option
+                                            v-for="model in getModelsForProvider(player.provider)"
+                                            :key="model.id"
+                                            :value="model.id"
+                                        >
                                             {{ model.name }}
                                         </option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label class="mb-1 block text-xs font-medium text-neutral-400">Personality</label>
+                                    <label class="mb-1 block text-xs font-medium text-slate-400" :for="`personality-${index}`">
+                                        Personality
+                                    </label>
                                     <select
+                                        :id="`personality-${index}`"
                                         v-model="player.personality"
-                                        class="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        class="field-brand"
                                     >
-                                        <option v-for="personality in availablePersonalities" :key="personality" :value="personality">
+                                        <option
+                                            v-for="personality in availablePersonalities"
+                                            :key="personality"
+                                            :value="personality"
+                                        >
                                             {{ personality.length > 50 ? personality.slice(0, 50) + '...' : personality }}
                                         </option>
                                     </select>
                                 </div>
                             </div>
+
+                            <p :class="['text-xs font-medium', providerAccent[player.provider] || 'text-slate-400']">
+                                {{ getModelName(player.provider, player.model) }} ({{ player.provider }})
+                            </p>
                         </div>
 
                         <button
                             v-if="players.length > 5"
+                            type="button"
+                            class="mt-6 shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-red-400"
+                            :aria-label="`Remove player ${index + 1}`"
                             @click="removePlayer(index)"
-                            class="mt-5 shrink-0 rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-800 hover:text-red-400"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path
                                     fill-rule="evenodd"
                                     d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -289,59 +323,43 @@ const providerAccent: Record<string, string> = {
                             </svg>
                         </button>
                     </div>
+                </li>
+            </ol>
 
-                    <div class="mt-2 pl-14">
-                        <span :class="['text-xs font-medium', providerAccent[player.provider] || 'text-neutral-400']">
-                            {{ getModelName(player.provider, player.model) }} ({{ player.provider }})
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4 flex items-center gap-4">
+            <div v-if="hasProviders" class="mt-4">
                 <button
                     v-if="players.length < 12"
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg border border-dashed border-white/20 px-4 py-2.5 text-sm text-slate-400 transition hover:border-white/40 hover:text-slate-200"
                     @click="addPlayer"
-                    class="inline-flex items-center gap-2 rounded-lg border border-dashed border-neutral-700 px-4 py-2.5 text-sm text-neutral-400 transition hover:border-neutral-600 hover:text-neutral-300"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
-                    Add Player
+                    Add player
                 </button>
             </div>
 
-            <div class="mt-8 border-t border-neutral-800 pt-6">
+            <div v-if="hasProviders" class="mt-10 border-t border-white/10 pt-6">
                 <div class="mb-4 flex flex-wrap items-center gap-2">
-                    <span class="text-sm text-neutral-400">{{ players.length }} players —</span>
+                    <span class="text-sm text-slate-400">{{ players.length }} players, role mix</span>
                     <RoleTooltip
                         v-for="role in roleBreakdown"
                         :key="role.name"
                         :role="role.name"
                     >
-                        <span :class="['inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-neutral-200', role.bg]">
-                            <span>{{ role.icon }}</span>
-                            <span>{{ role.count }}x {{ role.name }}</span>
+                        <span :class="['inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-xs font-medium text-gray-100', role.bg]">
+                            <span class="text-[10px] font-semibold text-slate-400" aria-hidden="true">{{ role.icon }}</span>
+                            <span>{{ role.count }}× {{ role.name }}</span>
                         </span>
                     </RoleTooltip>
                 </div>
                 <div class="flex justify-end">
                     <button
-                        @click="submit"
+                        type="button"
+                        class="btn-brand-solid disabled:cursor-not-allowed disabled:border-slate-600 disabled:bg-slate-700 disabled:text-slate-400"
                         :disabled="!canSubmit || submitting"
-                        :class="[
-                            'inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition',
-                            canSubmit && !submitting
-                                ? 'bg-indigo-600 hover:bg-indigo-500'
-                                : 'cursor-not-allowed bg-neutral-700 text-neutral-400',
-                        ]"
+                        @click="submit"
                     >
-                        <span v-if="submitting">Creating...</span>
-                        <span v-else>Create Game</span>
+                        <span v-if="submitting">Creating…</span>
+                        <span v-else>Create game</span>
                     </button>
                 </div>
             </div>

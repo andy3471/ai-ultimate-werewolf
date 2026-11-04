@@ -1,7 +1,10 @@
 <?php
 
-test('home redirects to games index', function () {
-    $response = $this->get(route('home'));
-
-    $response->assertRedirect(route('games.index'));
+test('home renders the welcome page', function () {
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Welcome')
+            ->has('canRegister')
+        );
 });

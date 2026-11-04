@@ -1,6 +1,6 @@
 export type PhaseMeta = {
     label: string;
-    icon: string;
+    mark: string;
     bg: string;
     description: string;
 };
@@ -8,44 +8,44 @@ export type PhaseMeta = {
 export const PHASE_META: Record<string, PhaseMeta> = {
     lobby: {
         label: 'Lobby',
-        icon: '🏠',
-        bg: 'from-neutral-800 to-neutral-900',
+        mark: 'Lobby',
+        bg: 'from-dark-tertiary to-dark-primary',
         description: 'Waiting for game to start...',
     },
     night: {
         label: 'Night',
-        icon: '🌙',
-        bg: 'from-indigo-950 to-neutral-950',
+        mark: 'Night',
+        bg: 'from-slate-950 to-dark-primary',
         description: 'Night actions are in progress.',
     },
     dawn: {
         label: 'Dawn',
-        icon: '🌅',
-        bg: 'from-amber-950 to-neutral-950',
+        mark: 'Dawn',
+        bg: 'from-amber-950/80 to-dark-primary',
         description: 'Night actions are resolved.',
     },
     day_discussion: {
         label: 'Discussion',
-        icon: '💬',
-        bg: 'from-sky-950 to-neutral-950',
+        mark: 'Day',
+        bg: 'from-sky-950/70 to-dark-primary',
         description: 'Players discuss in turn; nominations start after.',
     },
     day_voting: {
         label: 'Voting',
-        icon: '🗳️',
-        bg: 'from-red-950 to-neutral-950',
+        mark: 'Vote',
+        bg: 'from-red-950/70 to-dark-primary',
         description: 'Nominations, second, defense, then trial vote.',
     },
     dusk: {
         label: 'Dusk',
-        icon: '🌆',
-        bg: 'from-orange-950 to-neutral-950',
+        mark: 'Dusk',
+        bg: 'from-orange-950/70 to-dark-primary',
         description: 'Trial resolved; night may follow.',
     },
     game_over: {
         label: 'Game Over',
-        icon: '🏁',
-        bg: 'from-neutral-800 to-neutral-900',
+        mark: 'End',
+        bg: 'from-dark-tertiary to-dark-primary',
         description: 'The game has ended.',
     },
 };
@@ -54,17 +54,15 @@ export function phaseMeta(phase: string): PhaseMeta {
     return (
         PHASE_META[phase] ?? {
             label: phase,
-            icon: '❓',
-            bg: 'from-neutral-800 to-neutral-900',
+            mark: '?',
+            bg: 'from-dark-tertiary to-dark-primary',
             description: '',
         }
     );
 }
 
 export function phaseLabel(phase: string): string {
-    const meta = phaseMeta(phase);
-
-    return `${meta.icon} ${meta.label}`;
+    return phaseMeta(phase).label;
 }
 
 export function phaseDescription(phase: string): string {

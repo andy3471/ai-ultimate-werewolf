@@ -4,6 +4,7 @@ players: { [key: number]: App.Data.PlayerSlotData };
 };
 export type GameData = {
 id: string;
+reference: string;
 userId: string;
 status: string;
 phase: string;
@@ -48,6 +49,7 @@ personality: string;
 }
 declare namespace App.Enums {
 export type DawnFollowUpStep = 0 | 1 | 2 | 3;
+export type DayVotingStage = 'collecting_nominations' | 'building_nomination_result' | 'nominations_exhausted' | 'awaiting_second_window' | 'collecting_seconds' | 'seconds_exhausted' | 'defense' | 'trial_vote' | 'trial_outcome' | 'dying_speech' | 'elimination_follow_up' | 'hunter_shot_dying_speech' | 'complete';
 export type GameEventType = 'werewolf_kill' | 'seer_investigate' | 'bodyguard_protect' | 'bodyguard_save' | 'discussion' | 'dying_speech' | 'nomination' | 'nomination_result' | 'nomination_second' | 'nomination_block' | 'defense_speech' | 'vote' | 'vote_outcome' | 'vote_tally' | 'vote_tie' | 'no_elimination' | 'death' | 'elimination' | 'hunter_shot' | 'hunter_shot_followup_done' | 'narration' | 'no_death' | 'game_end' | 'error';
 export type GameRole = 'werewolf' | 'villager' | 'seer' | 'bodyguard' | 'hunter' | 'tanner';
 export type GameTeam = 'village' | 'werewolves' | 'neutral';

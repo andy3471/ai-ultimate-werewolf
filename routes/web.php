@@ -3,9 +3,13 @@
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\RulesController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+use Laravel\Fortify\Features;
 
 Route::get('/', function () {
-    return redirect()->route('games.index');
+    return Inertia::render('Welcome', [
+        'canRegister' => Features::enabled(Features::registration()),
+    ]);
 })->name('home');
 
 Route::get('rules', RulesController::class)->name('rules');

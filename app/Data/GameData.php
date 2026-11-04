@@ -11,6 +11,7 @@ class GameData extends Data
 {
     public function __construct(
         public string $id,
+        public string $reference,
         public string $userId,
         public string $status,
         public string $phase,

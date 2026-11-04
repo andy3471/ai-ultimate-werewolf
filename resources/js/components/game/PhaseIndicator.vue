@@ -14,25 +14,22 @@ const isNight = computed(() => props.phase === 'night');
 </script>
 
 <template>
-    <div
-        :class="[
-            'rounded-xl bg-gradient-to-r p-4 transition-all duration-700',
-            phaseDisplay.bg,
-        ]"
-    >
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <span class="text-3xl">{{ phaseDisplay.icon }}</span>
-                <div>
-                    <h2 class="text-lg font-bold text-neutral-100">{{ phaseDisplay.label }}</h2>
-                    <p v-if="narration" class="text-sm italic text-violet-300/80">{{ narration }}</p>
-                    <p v-else class="text-sm text-neutral-400">{{ description }}</p>
+    <div class="border border-white/10 bg-dark-secondary/40 px-4 py-4">
+        <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-lg font-semibold text-gray-100">{{ phaseDisplay.label }}</h2>
+                    <span class="status-pill bg-white/5 text-slate-400 ring-white/10">
+                        {{ phaseDisplay.mark }}
+                    </span>
                 </div>
+                <p v-if="narration" class="mt-1 text-sm italic text-slate-300">{{ narration }}</p>
+                <p v-else class="mt-1 text-sm text-slate-400">{{ description }}</p>
             </div>
-            <div v-if="round > 0" class="text-right">
-                <div class="text-2xl font-bold text-neutral-200">Round {{ round }}</div>
-                <div :class="['text-xs font-medium', isNight ? 'text-indigo-400' : 'text-amber-400']">
-                    {{ isNight ? '🌙 Night' : '☀️ Day' }}
+            <div v-if="round > 0" class="shrink-0 text-right">
+                <div class="text-2xl font-semibold text-gray-100">Round {{ round }}</div>
+                <div class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {{ isNight ? 'Night cycle' : 'Day cycle' }}
                 </div>
             </div>
         </div>
