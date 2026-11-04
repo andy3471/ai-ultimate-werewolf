@@ -220,7 +220,7 @@ const providerAccent: Record<string, string> = {
                 >
                     <div class="flex items-start gap-4">
                         <div
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-dark-tertiary text-sm font-bold text-slate-200 ring-1 ring-white/10"
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-dark-tertiary text-sm font-semibold text-slate-200 ring-1 ring-white/10"
                             aria-hidden="true"
                         >
                             {{ index + 1 }}
@@ -310,7 +310,7 @@ const providerAccent: Record<string, string> = {
                         <button
                             v-if="players.length > 5"
                             type="button"
-                            class="mt-6 shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-red-400"
+                            class="mt-6 shrink-0 rounded-md p-2 text-slate-500 transition hover:bg-white/5 hover:text-red-400"
                             :aria-label="`Remove player ${index + 1}`"
                             @click="removePlayer(index)"
                         >
@@ -330,7 +330,7 @@ const providerAccent: Record<string, string> = {
                 <button
                     v-if="players.length < 12"
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-lg border border-dashed border-white/20 px-4 py-2.5 text-sm text-slate-400 transition hover:border-white/40 hover:text-slate-200"
+                    class="inline-flex items-center gap-2 rounded-md border border-dashed border-white/20 px-4 py-2.5 text-sm text-slate-400 transition hover:border-white/40 hover:text-slate-200"
                     @click="addPlayer"
                 >
                     Add player

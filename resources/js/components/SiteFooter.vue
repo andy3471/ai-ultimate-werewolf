@@ -3,11 +3,11 @@ const year = new Date().getFullYear();
 </script>
 
 <template>
-    <footer class="relative z-10 mt-auto border-t border-white/10 bg-dark-primary/80">
+    <footer class="relative z-10 mt-auto border-t border-white/10 bg-dark-primary">
         <div class="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
             <p class="text-sm text-mist">
                 Built by
-                <span class="font-marker gradient-logo marker-wiggle ml-1 inline-block text-base leading-none">
+                <span class="brand-logo marker-wiggle ml-1 inline-block text-base leading-none">
                     Andrew Hargrave
                 </span>
             </p>

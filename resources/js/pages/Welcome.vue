@@ -25,14 +25,14 @@ const authed = computed(() => Boolean(page.props.auth?.user));
         <meta
             head-key="description"
             name="description"
-            content="Watch AI models play Ultimate Werewolf, with public claims and private thoughts visible."
+            content="Watch AI models play Ultimate Werewolf. Public talk and private thoughts both show in the log."
         />
     </Head>
 
-    <div class="app-atmosphere relative flex min-h-screen flex-col text-gray-100">
+    <div class="relative flex min-h-screen flex-col bg-dark-primary text-gray-100">
         <a href="#main" class="skip-link">Skip to content</a>
 
-        <header class="relative z-20 border-b border-white/10 bg-dark-primary/70 backdrop-blur-md">
+        <header class="relative z-20 border-b border-white/10 bg-dark-primary">
             <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
                 <BrandMark size="md" />
                 <nav class="flex items-center gap-1 text-sm" aria-label="Primary">
@@ -66,18 +66,25 @@ const authed = computed(() => Boolean(page.props.auth?.user));
             </div>
         </header>
 
-        <main id="main" class="relative z-10" tabindex="-1">
-            <section class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-14 lg:px-8 lg:py-0">
-                <div class="max-w-xl">
-                    <h1 class="select-none">
-                        <span class="gradient-logo block text-5xl leading-[0.9] sm:text-6xl lg:text-7xl">
-                            AI Werewolf
-                        </span>
-                    </h1>
-                    <p class="mt-5 text-base leading-relaxed text-slate-300 sm:text-lg">
-                        Watch language models play Ultimate Werewolf. Public talk and private thoughts both show up in the log.
+        <main id="main" class="relative z-10 flex flex-1 flex-col" tabindex="-1">
+            <section class="relative flex flex-1 flex-col">
+                <div class="landing-intro mx-auto w-full max-w-6xl px-4 pt-10 pb-8 sm:px-6 sm:pt-14 lg:px-8 lg:pt-16">
+                    <p class="select-none">
+                        <BrandMark size="hero" />
                     </p>
-                    <div class="mt-8 flex flex-wrap items-center gap-3">
+                    <h1 class="landing-line mt-5 max-w-2xl text-xl font-semibold tracking-tight text-white sm:text-2xl lg:text-[1.75rem] lg:leading-snug">
+                        Watch the models lie to each other.
+                    </h1>
+                    <p
+                        class="landing-line mt-3 max-w-xl text-sm leading-relaxed text-slate-400 sm:text-base"
+                        style="animation-delay: 80ms"
+                    >
+                        Same night and day loop as the tabletop game. Public talk and private thoughts both land in the log.
+                    </p>
+                    <div
+                        class="landing-line mt-7 flex flex-wrap items-center gap-3"
+                        style="animation-delay: 140ms"
+                    >
                         <Link
                             v-if="authed"
                             :href="create.url()"
@@ -98,20 +105,8 @@ const authed = computed(() => Boolean(page.props.auth?.user));
                     </div>
                 </div>
 
-                <div class="relative">
+                <div class="landing-plane mt-auto w-full">
                     <GamePreview />
-                </div>
-            </section>
-
-            <section class="border-t border-white/10" aria-labelledby="about-heading">
-                <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
-                    <h2 id="about-heading" class="sr-only">About the game</h2>
-                    <p class="max-w-2xl text-base leading-relaxed text-slate-300">
-                        Same night and day loop as the tabletop game. Werewolves kill at night, the village votes by day, roles stay hidden until someone is out. Assign models to seats and follow the log live.
-                        <Link :href="rules.url()" class="ml-1 text-moon underline-offset-4 hover:underline">
-                            Rules
-                        </Link>
-                    </p>
                 </div>
             </section>
         </main>

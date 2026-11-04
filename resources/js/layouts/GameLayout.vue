@@ -21,15 +21,10 @@ const navLinkClass = (href: string) =>
 </script>
 
 <template>
-    <div class="app-atmosphere relative flex min-h-screen flex-col text-gray-100">
-        <div
-            class="lofi-grain pointer-events-none absolute inset-0 z-0 opacity-[0.035] mix-blend-overlay"
-            aria-hidden="true"
-        />
-
+    <div class="relative flex min-h-screen flex-col bg-dark-primary text-gray-100">
         <a href="#main" class="skip-link">Skip to content</a>
 
-        <header class="relative z-20 border-b border-white/10 bg-dark-primary/80 backdrop-blur-md">
+        <header class="relative z-20 border-b border-white/10 bg-dark-primary">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
                 <Link :href="auth.user ? index.url() : home()" class="shrink-0">
                     <BrandMark size="md" />

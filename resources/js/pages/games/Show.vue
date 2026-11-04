@@ -157,7 +157,7 @@ function distributionIcon(role: string): string {
                 </div>
                 <button
                     type="button"
-                    class="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium transition"
+                    class="rounded-md border border-white/10 px-3 py-2 text-sm font-medium transition"
                     :class="muted
                         ? 'bg-dark-tertiary text-slate-500 hover:text-slate-300'
                         : 'border-white/20 bg-white/5 text-gray-100 hover:bg-white/10'"
@@ -170,9 +170,9 @@ function distributionIcon(role: string): string {
 
             <div
                 v-if="isFinished && winnerBanner"
-                :class="['mb-6 border border-white/10 bg-gradient-to-r px-6 py-8 text-center', winnerBanner.color]"
+                :class="['mb-6 border border-white/10 px-6 py-6 text-center', winnerBanner.color]"
             >
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Result</p>
+                <p class="text-xs text-slate-400">Result</p>
                 <h2 class="mt-2 text-3xl font-semibold text-gray-100">{{ winnerBanner.label }}</h2>
                 <p v-if="winnerMessage" class="mt-2 text-slate-300">{{ winnerMessage }}</p>
             </div>
@@ -186,13 +186,13 @@ function distributionIcon(role: string): string {
 
             <div v-if="game.role_distribution" class="mt-4 border border-white/10 bg-dark-secondary/40 px-4 py-3">
                 <div class="flex flex-wrap items-center gap-3">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Roles in play</span>
+                    <span class="text-xs text-slate-500">Roles in play</span>
                     <RoleTooltip
                         v-for="(count, role) in game.role_distribution"
                         :key="role"
                         :role="String(role)"
                     >
-                        <span :class="['inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-xs font-medium text-gray-100', distributionBadgeClass(String(role))]">
+                        <span :class="['inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-gray-100', distributionBadgeClass(String(role))]">
                             <span class="text-[10px] font-semibold text-slate-400" aria-hidden="true">{{ distributionIcon(String(role)) }}</span>
                             <span>{{ count }}× {{ role }}</span>
                         </span>

@@ -72,18 +72,18 @@ const isAlive = computed(() => props.player.is_alive && !props.isEliminated);
             v-if="!isAlive"
             class="pointer-events-none absolute inset-0 flex items-center justify-end pr-3"
         >
-            <span class="text-xs font-semibold uppercase tracking-wide text-red-400/80">Eliminated</span>
+            <span class="text-xs font-medium text-red-400/80">Eliminated</span>
         </div>
 
         <div class="flex items-center gap-3">
             <div
                 :class="[
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-2',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-md ring-1',
                     providerRing,
                     isAlive ? 'bg-dark-tertiary' : 'bg-dark-primary',
                 ]"
             >
-                <span class="text-sm font-bold text-slate-200">{{ player.name.charAt(0) }}</span>
+                <span class="text-sm font-semibold text-slate-200">{{ player.name.charAt(0) }}</span>
             </div>
             <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-semibold text-gray-100">{{ player.name }}</div>

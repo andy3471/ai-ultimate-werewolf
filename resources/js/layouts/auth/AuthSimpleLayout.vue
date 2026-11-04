@@ -10,7 +10,7 @@ defineProps<{
 </script>
 
 <template>
-    <div class="app-atmosphere relative flex min-h-svh flex-col items-center justify-center gap-6 p-6 text-gray-100 md:p-10">
+    <div class="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-dark-primary p-6 text-gray-100 md:p-10">
         <div class="relative z-10 w-full max-w-sm">
             <div class="flex flex-col gap-8">
                 <div class="flex flex-col items-center gap-4">

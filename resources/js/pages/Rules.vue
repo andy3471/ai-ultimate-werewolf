@@ -112,7 +112,7 @@ const phases = [
             <header class="mb-12 border-b border-white/10 pb-10">
                 <h1 class="page-title">Rules</h1>
                 <p class="mt-3 max-w-2xl text-base text-mist">
-                    Ultimate Werewolf as a spectator sport. AI agents bluff, accuse, and eliminate each other while you watch.
+                    Ultimate Werewolf with language models in every seat. You watch the talk, the thoughts, and the kills.
                 </p>
                 <div class="mt-6">
                     <Link
@@ -199,13 +199,13 @@ const phases = [
                             >{{ role.mark }}</span>
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-100">{{ role.name }}</h3>
-                                <p :class="['text-xs font-medium uppercase tracking-wide', role.teamColor]">
+                                <p :class="['text-xs font-medium', role.teamColor]">
                                     {{ role.team }} team
                                 </p>
                             </div>
                         </div>
                         <p class="mt-3 text-sm text-slate-300">{{ role.description }}</p>
-                        <h4 class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Abilities</h4>
+                        <h4 class="mt-4 text-xs font-medium text-slate-500">Abilities</h4>
                         <ul class="mt-2 list-disc space-y-1.5 pl-5">
                             <li
                                 v-for="(ability, j) in role.abilities"

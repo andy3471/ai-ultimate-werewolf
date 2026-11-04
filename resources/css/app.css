@@ -18,12 +18,11 @@
 
     --color-moon: #d7e0ef;
     --color-ember: #c45c26;
-    --color-blood: #9b1d3a;
+    --color-blood: #c41e3a;
     --color-mist: #8b93a7;
 
     --color-accent-blue: #7b93c9;
     --color-accent-cyan: #8aa4c7;
-    --color-accent-purple: #6b4c7a;
     --color-accent-orange: #c45c26;
     --color-accent-pink: #9b1d3a;
     --color-accent-yellow: #e8c47a;
@@ -159,18 +158,6 @@
     --sidebar: #06060b;
 }
 
-@utility gradient-text {
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-@utility gradient-logo {
-    /* Werewolf brand ramp — same marker treatment as portfolio, red-led for this app */
-    @apply gradient-text font-marker;
-    background-image: linear-gradient(135deg, #6b0f1a 0%, #c41e3a 42%, #e04545 72%, #f08a6a 100%);
-}
-
 @utility page-title {
     @apply text-3xl font-semibold tracking-tight text-gray-100 sm:text-4xl;
 }
@@ -180,26 +167,26 @@
 }
 
 @utility btn-brand {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-white/25 px-4 py-2.5 text-sm font-medium text-gray-100 transition-colors duration-200;
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-white/25 px-4 py-2.5 text-sm font-medium text-gray-100 transition-colors duration-200;
     @apply hover:border-white/50 hover:bg-white/5;
-    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-blue;
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blood;
 }
 
 @utility btn-brand-solid {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-white bg-white px-4 py-2.5 text-sm font-medium text-dark-primary transition-colors duration-200;
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-white bg-white px-4 py-2.5 text-sm font-medium text-dark-primary transition-colors duration-200;
     @apply hover:bg-gray-100;
-    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-blue;
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blood;
 }
 
 @utility btn-brand-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors duration-200;
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-transparent px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors duration-200;
     @apply hover:text-white;
-    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-blue;
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blood;
 }
 
 @utility field-brand {
-    @apply w-full rounded-lg border border-white/10 bg-dark-tertiary/80 px-3 py-2 text-sm text-gray-100 placeholder:text-slate-500;
-    @apply focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-accent-blue/40;
+    @apply w-full rounded-md border border-white/10 bg-dark-tertiary/80 px-3 py-2 text-sm text-gray-100 placeholder:text-slate-500;
+    @apply focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-blood/40;
 }
 
 @utility surface-panel {
@@ -221,26 +208,17 @@
     }
 
     :focus-visible {
-        outline: 2px solid var(--color-accent-blue);
+        outline: 2px solid var(--color-blood);
         outline-offset: 2px;
     }
 }
 
 @layer components {
-    .app-atmosphere {
-        background:
-            radial-gradient(ellipse 70% 45% at 80% 0%, rgba(59, 130, 246, 0.08), transparent 50%),
-            linear-gradient(165deg, #0a0a0f 0%, #12121c 55%, #1a1a2e 100%);
-        background-attachment: fixed;
-    }
-
-    .night-moon {
-        background: #d7e0ef;
-    }
-
-    .lofi-grain {
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-        background-size: 180px 180px;
+    .brand-logo {
+        @apply inline-block font-marker text-blood;
+        line-height: 1.2;
+        padding-block: 0.12em;
+        overflow: visible;
     }
 
     .marker-wiggle:hover {
@@ -257,14 +235,45 @@
         }
     }
 
+    @keyframes landing-rise {
+        from {
+            opacity: 0;
+            transform: translateY(0.6rem);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes landing-plane-in {
+        from {
+            opacity: 0;
+            transform: translateY(1rem);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .landing-intro .brand-logo,
+    .landing-line {
+        animation: landing-rise 0.55s ease-out both;
+    }
+
+    .landing-plane {
+        animation: landing-plane-in 0.7s ease-out 0.18s both;
+    }
+
     .skip-link {
         position: absolute;
         left: -9999px;
         top: 0.75rem;
         z-index: 200;
-        border-radius: 0.5rem;
-        background: #e8c47a;
-        color: #06060b;
+        border-radius: 0.375rem;
+        background: #c41e3a;
+        color: #f3f4f6;
         padding: 0.5rem 1rem;
         font-weight: 600;
     }
@@ -273,17 +282,13 @@
         left: 0.75rem;
     }
 
-    .status-pill {
-        @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .app-atmosphere {
-        background-attachment: scroll;
-    }
-
-    .marker-wiggle:hover {
+    .marker-wiggle:hover,
+    .landing-intro .brand-logo,
+    .landing-line,
+    .landing-plane {
         animation: none;
     }
 }

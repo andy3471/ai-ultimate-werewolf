@@ -75,10 +75,10 @@ function groupEvents(events: App.Data.GameEventData[]) {
             </div>
 
             <template v-for="group in groupEvents(events)" :key="`${group.round}-${group.phase}`">
-                <div class="sticky top-0 z-10 -mx-3 bg-dark-primary/95 px-3 py-1.5 backdrop-blur-sm">
-                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div class="sticky top-0 z-10 -mx-3 border-b border-white/5 bg-dark-primary px-3 py-1.5">
+                    <div class="text-xs text-slate-500">
                         {{ group.label }}
-                        <span v-if="group.round > 0" class="normal-case text-slate-600">, Round {{ group.round }}</span>
+                        <span v-if="group.round > 0" class="text-slate-600">, Round {{ group.round }}</span>
                     </div>
                 </div>
                 <GameLogEntry

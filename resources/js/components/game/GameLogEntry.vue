@@ -112,7 +112,7 @@ const displayText = computed(() => {
         ]"
     >
         <div class="flex items-start gap-3">
-            <span class="mt-0.5 w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <span class="mt-0.5 w-16 shrink-0 text-[11px] text-slate-500">
                 {{ typeConfig.label }}
             </span>
             <div class="min-w-0 flex-1">
